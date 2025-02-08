@@ -65,11 +65,20 @@ app.get('/user/list.json', async (c) => {
   return c.json(users);
 });
 
+app.get(`/user/:id`, async (c) => {
+  const { id } = c.req.param();
+
+  const user = await SgUser.query().findOrFail(id);
+  return c.json(user);
+});
+
 app.post('/user/create.json', async (c) => {
   const body = await c.req.json();
-  const { name } = body;
+  let { name,token } = body;
 
-  const token:String = crypto.randomUUID();
+  if(token == null){
+    token = crypto.randomUUID();
+  }
 
   const instance = await SgUser.query().create({
     name,
@@ -82,6 +91,13 @@ app.post('/user/create.json', async (c) => {
 app.get('/vendor/list.json', async (c) => {
   const users = await SgVendor.query().get();
   return c.json(users);
+});
+
+app.get(`/vendor/:id`, async (c) => {
+  const { id } = c.req.param();
+
+  const vendor = await SgVendor.query().findOrFail(id);
+  return c.json(vendor);
 });
 
 app.post('/vendor/create.json', async (c) => {

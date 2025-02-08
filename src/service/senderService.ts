@@ -8,7 +8,7 @@ import {SgUser} from "../model/sgUser";
 import {SgVendor} from "../model/sgVendor";
 
 
-async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel):Promise<Response>{
+async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:SgVendor):Promise<Response>{
 
     console.log("sendRequest: modelConfig={}", modelConfig);
 
@@ -21,16 +21,6 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel):Promise
 
     let body: string = await c.req.text();
     console.log("body:", body);
-
-    //find vendor
-    const vendor:SgVendor|null = await SgVendor.query().where('name', 'aliyun').first();
-    console.log("vendor:", vendor);
-
-    if(vendor?.url == null){
-        if(vendor?.type == "aliyun"){
-            vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
-        }
-    }
 
     let requestOptions = {
         method: 'POST',

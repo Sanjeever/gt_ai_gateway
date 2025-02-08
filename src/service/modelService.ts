@@ -8,7 +8,7 @@ async function getModel(modelName:string):Promise<SgModel | null> {
         return null;
 
     const model = await SgModel.query().where('name', modelName).first();
-    console.log("model:", model);
+    console.log("getModel:", model);
 
     return model;
 }
