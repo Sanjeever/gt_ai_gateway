@@ -5,6 +5,7 @@ import { ModelNotFoundError, sutando } from 'sutando';
 import {SgUser} from "./model/sgUser";
 import {SgModel} from "./model/sgModel";
 import {SgVendor} from "./model/sgVendor";
+import {SgRecord} from "./model/sgRecord";
 import { chatCompletions } from './web/aiApiEntry'
 
 
@@ -21,6 +22,7 @@ const app = new Hono();
 
 async function prepareDBConnection(c:Context, next:Next){
 
+  console.log("prepareDBConnection");
   sutando.addConnection({
     client: ClientD1,
     connection: {
@@ -69,6 +71,7 @@ app.get(`/user/:id`, async (c) => {
   const { id } = c.req.param();
 
   const user = await SgUser.query().findOrFail(id);
+  console.log("query end");
   return c.json(user);
 });
 
@@ -112,6 +115,18 @@ app.post('/vendor/create.json', async (c) => {
   });
 
   return c.json(instance);
+});
+
+app.get('/record/list.json', async (c) => {
+  const records = await SgRecord.query().get();
+  return c.json(records);
+});
+
+app.get('/record/:id', async (c) => {
+  const { id } = c.req.param();
+  console.log("id", id);
+  const record = await SgRecord.query().findOrFail(id);
+  return c.json(record);
 });
 
 

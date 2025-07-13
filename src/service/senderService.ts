@@ -2,13 +2,17 @@ import {Context} from "hono";
 import {SgModel} from "../model/sgModel";
 import {StatusCode} from "hono/dist/types/utils/http-status";
 import {CustomPromise} from "../util/enhanced";
-import { streamSSE, SSEStreamingApi} from 'hono/streaming'
+import {streamSSE, SSEStreamingApi} from 'hono/streaming'
 import {EventStreamContentType, fetchEventSource} from "@fortaine/fetch-event-source";
 import {SgUser} from "../model/sgUser";
 import {SgVendor} from "../model/sgVendor";
+import recordService from "./recordService";
 
 
 async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:SgVendor):Promise<Response>{
+
+    const record = await recordService.create(user.id, modelConfig.id);
+    const recordId = record.id;
 
     console.log("sendRequest: modelConfig={}", modelConfig);
 
