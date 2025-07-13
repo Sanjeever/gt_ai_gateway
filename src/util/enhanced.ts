@@ -2,7 +2,7 @@
 class CustomPromise<T> {
     private _resolve!: (value?: any) => void;
     private _reject!: (reason?: any) => void;
-    private promise: Promise<T>;
+    private readonly promise: Promise<T>;
 
     constructor() {
         this.promise = new Promise((resolve, reject) => {
@@ -30,6 +30,15 @@ class CustomPromise<T> {
 
     catch(onrejected?: ((reason: any) => any) | undefined | null): Promise<T> {
         return this.promise.catch(onrejected);
+    }
+
+    // Custom inspection for console.log to delegate to the internal promise.
+    [Symbol.for('nodejs.util.inspect.custom')]() {
+        return this.promise;
+    }
+
+    get [Symbol.toStringTag]() {
+        return 'Promise';
     }
 }
 
