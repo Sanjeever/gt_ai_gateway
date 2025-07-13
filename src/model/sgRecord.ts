@@ -1,6 +1,5 @@
-
 import {Model} from "sutando";
-
+import { inspect, InspectOptions } from 'util';
 
 class SgRecord extends Model {
     table = 'record';
@@ -16,6 +15,9 @@ class SgRecord extends Model {
     created_at!: Date;
     updated_at!: Date;
 
+    [inspect.custom](depth: number, options: InspectOptions) {
+        return JSON.stringify(this.toData(), null, 2);
+    }
 }
 
 export {

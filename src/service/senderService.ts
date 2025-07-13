@@ -14,7 +14,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
     const record = await recordService.create(user.id, modelConfig.id);
     const recordId = record.id;
 
-    console.log("sendRequest: modelConfig={}", JSON.stringify(modelConfig, null, 4));
+    console.log("sendRequest: modelConfig={}", modelConfig);
 
     let streamResponse: boolean = true;
 

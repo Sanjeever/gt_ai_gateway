@@ -1,5 +1,5 @@
 import {Model} from "sutando";
-
+import { inspect, InspectOptions } from 'util';
 
 class SgModel extends Model {
     table = 'model';
@@ -12,6 +12,9 @@ class SgModel extends Model {
     created_at!: Date;
     updated_at!: Date;
 
+    [inspect.custom](depth: number, options: InspectOptions) {
+        return JSON.stringify(this.toData(), null, 2);
+    }
 }
 
 export {

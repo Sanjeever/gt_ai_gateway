@@ -71,7 +71,7 @@ app.get(`/user/:id`, async (c) => {
   const { id } = c.req.param();
 
   const user = await SgUser.query().findOrFail(id);
-  console.log("query end");
+  console.log("user", user);
   return c.json(user);
 });
 

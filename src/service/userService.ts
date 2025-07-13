@@ -7,10 +7,7 @@ async function getUser(token:string):Promise<SgUser | null> {
     if( token == null)
         return null;
 
-    const user = await SgUser.query().where('token', token).first();
-    console.log("user:", user);
-
-    return user;
+    return await SgUser.query().where('token', token).first();
 }
 
 export default {

@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "@fortaine/fetch-event-source": "^3.0.6",
+    "@types/node": "^24.0.13",
     "hono": "^4.8.4",
     "knex-cloudflare-d1": "^0.1.1",
     "sutando": "^1.7.2",
