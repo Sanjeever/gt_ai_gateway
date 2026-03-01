@@ -48,7 +48,7 @@ async function chatCompletions(c: Context) {
     }
 
     //获取 vendor 配置
-    const vendor: SgVendor | null = await SgVendor.query().findOrFail(modelConfig!.vendor_id!);
+    const vendor: SgVendor | null = await SgVendor.query().find(modelConfig!.vendor_id!);
     console.log("vendor:", vendor);
 
     if (vendor == null) {
@@ -106,22 +106,27 @@ async function anthropicMessages(c: Context) {
     }
 
     //获取 vendor 配置
-    const vendor: SgVendor | null = await SgVendor.query().findOrFail(modelConfig!.vendor_id!);
+    const vendor: SgVendor | null = await SgVendor.query().find(modelConfig!.vendor_id!);
     console.log("vendor:", vendor);
 
     if (vendor == null) {
         return c.json({ error: 'vendor not found' }, 401);
     }
 
-    if (vendor?.url == null) {
-        if (vendor?.api_format === ApiFormat.ANTHROPIC) {
-            vendor.url = 'https://api.anthropic.com/v1/messages';
-        } else if (vendor?.type == "aliyun") {
-            vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+    try {
+        if (vendor?.url == null) {
+            if (vendor?.api_format === ApiFormat.ANTHROPIC) {
+                vendor.url = 'https://api.anthropic.com/v1/messages';
+            } else if (vendor?.type == "aliyun") {
+                vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+            }
         }
-    }
 
-    return sender.sendRequest(c, user!, modelConfig!, vendor!);
+        return await sender.sendRequest(c, user!, modelConfig!, vendor!);
+    } catch (e: any) {
+        console.error("Error in anthropicMessages route:", e);
+        return c.json({ error: "Internal Server Error", details: e.message }, 500);
+    }
 }
 
 export {
