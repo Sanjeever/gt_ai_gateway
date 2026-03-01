@@ -27,36 +27,36 @@ async function chatCompletions(c: Context) {
     // 提取 token
     const token = authHeader.split(' ')[1];
 
-    let user:SgUser|null = await userService.getUser(token!);
+    let user: SgUser | null = await userService.getUser(token!);
     console.log("user:", user);
 
-    if(user == null){
+    if (user == null) {
         return c.json({ error: 'Invalid token (user not found)' }, 401);
     }
-    
+
     //解析请求
     let bodyDict = JSON.parse(body);
     console.log("bodyDict:", bodyDict, typeof bodyDict);
 
     //获取后端模型配置
     let modelName = bodyDict.model;
-    let modelConfig:SgModel | null = await modelService.getModel(modelName);
+    let modelConfig: SgModel | null = await modelService.getModel(modelName);
     console.log("modelConfig:", modelConfig);
 
-    if(modelConfig == null){
+    if (modelConfig == null) {
         return c.json({ error: 'model not found' }, 401);
     }
 
     //获取 vendor 配置
-    const vendor:SgVendor|null = await SgVendor.query().findOrFail(modelConfig!.vendor_id!);
+    const vendor: SgVendor | null = await SgVendor.query().findOrFail(modelConfig!.vendor_id!);
     console.log("vendor:", vendor);
 
-    if(vendor == null){
+    if (vendor == null) {
         return c.json({ error: 'vendor not found' }, 401);
     }
 
-    if(vendor?.url == null){
-        if(vendor?.type == "aliyun"){
+    if (vendor?.url == null) {
+        if (vendor?.type == "aliyun") {
             vendor.url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
         }
     }

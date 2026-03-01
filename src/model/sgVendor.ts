@@ -1,12 +1,14 @@
 import { Model } from 'sutando';
 import { v4 as uuid } from 'uuid';
 import { inspect, InspectOptions } from 'util';
+import { VendorType, ApiFormat } from '../constants';
 
 class SgVendor extends Model {
     table = 'vendor';
 
     id!: number;
-    type!: string;
+    type!: VendorType;
+    api_format!: ApiFormat;
     name!: string;
     token!: string;
     url!: string;
@@ -18,7 +20,6 @@ class SgVendor extends Model {
         return JSON.stringify(this.toData(), null, 2);
     }
 }
-
 
 export {
     SgVendor

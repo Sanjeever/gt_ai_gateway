@@ -1,14 +1,14 @@
-import {Context} from "hono";
-import {SgModel} from "../model/sgModel";
-import {StatusCode} from "hono/dist/types/utils/http-status";
-import {CustomPromise} from "../util/enhanced";
-import {streamSSE, SSEStreamingApi} from 'hono/streaming'
-import {EventStreamContentType, fetchEventSource} from "@fortaine/fetch-event-source";
-import {SgUser} from "../model/sgUser";
-import {SgVendor} from "../model/sgVendor";
+import { Context } from "hono";
+import { SgModel } from "../model/sgModel";
+import { StatusCode } from "hono/dist/types/utils/http-status";
+import { CustomPromise } from "../util/enhanced";
+import { streamSSE, SSEStreamingApi } from 'hono/streaming'
+import { EventStreamContentType, fetchEventSource } from "@fortaine/fetch-event-source";
+import { SgUser } from "../model/sgUser";
+import { SgVendor } from "../model/sgVendor";
 import recordService from "./recordService";
-import {SgRecordStatus} from "../constants";
-import {SSEAccumulator} from "../util/sseAccumulator";
+import { SgRecordStatus } from "../constants";
+import { SSEAccumulator } from "../util/sseAccumulator";
 
 
 /**
@@ -20,12 +20,12 @@ import {SSEAccumulator} from "../util/sseAccumulator";
  * @param vendor - 供应商信息
  * @returns Promise<Response> - 响应对象
  */
-async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:SgVendor):Promise<Response>{
+async function sendRequest(c: Context, user: SgUser, modelConfig: SgModel, vendor: SgVendor): Promise<Response> {
 
     // 1. 获取请求体，并创建数据库记录
     let body: string = await c.req.text();
     const record = await recordService.create(user.id, modelConfig.id, body);
-    await recordService.update(record.id, {status: SgRecordStatus.PROCESSING});
+    await recordService.update(record.id, { status: SgRecordStatus.PROCESSING });
     const recordId = record.id;
 
     console.log("sendRequest: modelConfig={}", modelConfig);
@@ -62,7 +62,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
     upstreamReqPromise = fetchEventSource(vendor!.url!, {
         ...requestOptions,
         // 响应打开时触发
-        async onopen(response:Response) {
+        async onopen(response: Response) {
             upstreamStatusCode = response.status as StatusCode;
 
             // 如果响应成功且是 SSE 流
@@ -71,7 +71,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
                 getResponseHeaderPromise.resolve(null);  // 解除阻塞，可以开始返回流式响应
                 return; // everything's good
 
-            // 如果是客户端错误（通常不可重试）
+                // 如果是客户端错误（通常不可重试）
             } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
                 console.log("onOpen, but has error:", response);
                 isStreamResponse = false;  // 标记为非流式响应
@@ -82,20 +82,20 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
                 // 读取响应文本
                 if (contentType?.startsWith("text/plain") || contentType?.startsWith("application/json")) {
                     upstreamResponseText = await response.clone().text();
-                    console.log("statusCode:",response.status);
-                    console.log("responseText:",upstreamResponseText);
+                    console.log("statusCode:", response.status);
+                    console.log("responseText:", upstreamResponseText);
                 }
 
                 console.log("fallback to json response");
                 getResponseHeaderPromise.resolve(null);
 
-            // 其他情况（非流式响应）
+                // 其他情况（非流式响应）
             } else {
                 console.log("onOpen, but content-type not except:", response);
                 isStreamResponse = false;
                 upstreamResponseText = await response.clone().text();
-                console.log("statusCode:",response.status);
-                console.log("responseText:",upstreamResponseText);
+                console.log("statusCode:", response.status);
+                console.log("responseText:", upstreamResponseText);
 
                 getResponseHeaderPromise.resolve(null);
             }
@@ -116,7 +116,7 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
             getResponseHeaderPromise.resolve(null);
         },
         // 发生错误时触发
-        onerror(err:Response) {
+        onerror(err: Response) {
             console.log("onerror:", err);
             getResponseHeaderPromise.resolve(null);
         }
@@ -130,11 +130,11 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
 
     // 6. 根据响应类型返回结果
     // 流式响应
-    if(isStreamResponse === true){
+    if (isStreamResponse === true) {
         // 准备 SSE 流式响应
         let streamSSEResponse = streamSSE(c, async (stream: SSEStreamingApi) => {
             streamOutputPipe = stream;  // 设置输出管道
-            console.log("before await upstreamReqPromise",upstreamReqPromise);
+            console.log("before await upstreamReqPromise", upstreamReqPromise);
             await upstreamReqPromise;   // 等待上游请求完成
             console.log("after upstreamReqReqromise finished", upstreamReqPromise);
 
@@ -147,17 +147,17 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
         });
         return streamSSEResponse;
 
-    // 非流式响应
-    }else{
+        // 非流式响应
+    } else {
         // 更新数据库记录
         await recordService.update(recordId, {
-            response_data:upstreamResponseText,
-            status: upstreamStatusCode == 200 ? SgRecordStatus.SUCCESS:SgRecordStatus.FAILED
+            response_data: upstreamResponseText,
+            status: upstreamStatusCode == 200 ? SgRecordStatus.SUCCESS : SgRecordStatus.FAILED
         })
 
         // 返回 JSON 响应
         c.status(upstreamStatusCode!);
-        c.res.headers.set("Content-Type","application/json");
+        c.res.headers.set("Content-Type", "application/json");
         return c.text(upstreamResponseText!)
     }
 }
