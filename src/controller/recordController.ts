@@ -17,7 +17,13 @@ async function latestRecords(c: Context) {
 async function getRecord(c: Context) {
   const { id } = c.req.param()
   console.log("id", id)
-  const record = await SgRecord.query().findOrFail(id)
+
+  const record = await SgRecord.query().find(id)
+
+  if (!record) {
+    return c.json({ error: 'Record not found' }, 404)
+  }
+
   return c.json(record)
 }
 

@@ -1,15 +1,15 @@
 # 说明
 
-## API 说明
-1. URL 定义使用 rest 风格
+## 编程规范
+1. 代码使用 4 个空格缩进，每个方法之间空两行
+2. 程序使用 MVC 架构，主要由以下几个模块组成:
+    1. 业务逻辑放到 service 层中
+    2. controller 层只包含简单逻辑和调用 service
+    3. model 层包含数据模型，以及数据模型本身的计算逻辑
+    4. 跟业务无关的静态方法，放到 utils 中
+    5. 常量定义都放在 constants 中
+3. api 使用 rest 风格，url 都以 .json 结尾
+4. 不要用 ORM 内置的 findOrFail 方法（会导致返回 404 而不是 json），需要的时候只使用 find 然后通过 if 判断结果处理
 
-## 项目结构
-1. src/index.ts: api 的入口定义（简单的逻辑，如查询等，直接在里面实现。复杂的引用其他模块中的代码）
-2. web/aiApiEntry.ts: AI 请求的入口和基础逻辑
-3. src/service/: 各个服务的代码
-    1. modelService.ts: 对 model 对象的操作
-    2. recordService.ts: 对 record 对象的操作
-    3. senderService.ts: 实现 AI 请求转发的逻辑
-    4. userService.ts: 对 user 对象的操作
-4. src/model/:各个数据对象的定义
-5. util/: 一些拓展，工具类
+## 工作技巧
+1. 在执行单条测试用例的时候（如果日志不是特多），不要用 grep 过滤日志，直接查看整个用例的全部输出，这样更容易定位问题

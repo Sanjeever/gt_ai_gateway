@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { post, postWithApiKey } from '../../helpers/requestHelper'
+import { get, post, postWithApiKey } from '../../helpers/requestHelper'
 import { generateUser, generateAnthropicMessageRequest } from '../../helpers/mockHelper'
 import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
 import { createRandomModel } from '../../fixtures/modelFixtures'
@@ -20,11 +20,17 @@ describe('AI Messages API (Anthropic)', () => {
 
     // Create Anthropic vendor
     const anthropicVendor = await post('/vendor/create.json', VENDOR_FIXTURES.anthropic)
+    console.log('Created vendor:', anthropicVendor.body)
     anthropicVendorId = anthropicVendor.body.id
 
     // Create Anthropic model
-    const anthropicModel = await post('/model/create.json', createRandomModel(anthropicVendorId, 'claude-3-haiku-20240307'))
+    const anthropicModel = await post('/model/create.json', createRandomModel(anthropicVendorId))
+    console.log('Created model:', anthropicModel.body)
     anthropicModelName = anthropicModel.body.name
+
+    // Verify vendor creation
+    const vendorGet = await get(`/vendor/${anthropicVendorId}`)
+    console.log('Retrieved vendor:', vendorGet.body)
   })
 
   describe('POST /v1/messages', () => {
@@ -35,6 +41,10 @@ describe('AI Messages API (Anthropic)', () => {
       })
 
       const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+
+      if (response.status !== 200) {
+        console.log('ERROR body:', response.body)
+      }
 
       expect(response.status).toBe(200)
       expect(response.body).toHaveProperty('id')

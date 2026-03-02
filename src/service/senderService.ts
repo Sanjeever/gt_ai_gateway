@@ -130,11 +130,24 @@ async function sendRequest(c: Context, user: SgUser, modelConfig: SgModel, vendo
         async onmessage(msg) {
             console.log("onMessage:", msg);
 
-            // 累积消息到累加器
-            const data = JSON.parse(msg.data);
-            sseAccumulator.addMessage(data);
+            // 检查是否是 [DONE] 标和其他特殊消息
+            if (msg.data === '[DONE]') {
+                // 直接转发，不尝试解析
+                await streamOutputPipe!.writeSSE(msg);
+                return;
+            }
 
-            await streamOutputPipe!.writeSSE(msg);  // 将消息转发给客户端
+            try {
+                // 累积消息到累加器
+                const data = JSON.parse(msg.data);
+                sseAccumulator.addMessage(data);
+
+                await streamOutputPipe!.writeSSE(msg);  // 将消息转发给客户端
+            } catch (e) {
+                console.log("Failed to parse message data:", msg.data, e);
+                // 仍然转发原始消息
+                await streamOutputPipe!.writeSSE(msg);
+            }
         },
         // 连接关闭时触发
         onclose() {

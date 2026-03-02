@@ -9,7 +9,12 @@ async function listVendors(c: Context) {
 async function getVendor(c: Context) {
   const { id } = c.req.param()
 
-  const vendor = await SgVendor.query().findOrFail(id)
+  const vendor = await SgVendor.query().find(id)
+
+  if (!vendor) {
+    return c.json({ error: 'Vendor not found' }, 404)
+  }
+
   return c.json(vendor)
 }
 

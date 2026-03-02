@@ -6,10 +6,14 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     exclude: ['node_modules'],
     environment: 'node',
-    setupFiles: ['./tests/setup.ts'],
-    // Disable parallel execution - run tests sequentially
-    pool: 'threads',
-    threads: 1,
+    globalSetup: ['./tests/globalSetup.ts'],
+    // Run tests sequentially to avoid database and port conflicts
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

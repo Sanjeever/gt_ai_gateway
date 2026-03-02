@@ -9,7 +9,12 @@ async function listUsers(c: Context) {
 async function getUser(c: Context) {
   const { id } = c.req.param()
 
-  const user = await SgUser.query().findOrFail(id)
+  const user = await SgUser.query().find(id)
+
+  if (!user) {
+    return c.json({ error: 'User not found' }, 404)
+  }
+
   console.log("user", user)
   return c.json(user)
 }
@@ -18,7 +23,7 @@ async function createUser(c: Context) {
   const body = await c.req.json()
   let { name, token } = body
 
-  if (token == null) {
+  if (token === null || token === undefined || token === '') {
     token = crypto.randomUUID()
   }
 

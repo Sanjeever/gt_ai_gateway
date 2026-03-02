@@ -115,7 +115,7 @@ async function anthropicMessages(c: Context) {
         return c.json({ error: 'vendor api_format must be anthropic' }, 400);
     }
 
-    return await sender.sendRequest(c, user!, modelConfig!, vendor!);
+    return await sender.sendRequest(c, user, modelConfig, vendor);
 }
 
 export default {
