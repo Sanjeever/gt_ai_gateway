@@ -64,7 +64,7 @@ async function sendRequest(
     let isStreamResponse: boolean = true; // 是否为流式响应
     let upstreamStatusCode: StatusCode | null = null; // 上游响应状态码
     let upstreamResponseText: string | null = null; // 上游响应文本（非流式）
-    let sseAccumulator = new sseAccumulator.SSEAccumulator(); // SSE 消息累加器
+    const accumulator = new sseAccumulator.SSEAccumulator(); // SSE 消息累加器
 
     // 自定义 Promise，用于等待响应头到达（判断是否为流式）
     let getResponseHeaderPromise: enhanced.CustomPromise<void> = new enhanced.CustomPromise();
@@ -169,7 +169,7 @@ async function sendRequest(
             try {
                 // 累积消息到累加器
                 const data = JSON.parse(msg.data);
-                sseAccumulator.addMessage(data);
+                accumulator.addMessage(data);
 
                 await streamOutputPipe!.writeSSE(msg); // 将消息转发给客户端
             } catch (e) {
@@ -221,7 +221,7 @@ async function sendRequest(
                 );
 
                 // 流式响应完成后，保存完整响应到数据库
-                const fullResponse = sseAccumulator.getResponse();
+                const fullResponse = accumulator.getResponse();
                 await recordService.update(recordId, {
                     response_data: JSON.stringify(fullResponse),
                     status: SgRecordStatus.SUCCESS,
