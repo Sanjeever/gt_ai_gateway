@@ -13,6 +13,23 @@ let testServerProcess: ChildProcess | null = null;
 let mockServerProcess: any | null = null;
 
 /**
+ * Global cleanup for when tests are interrupted
+ */
+function globalCleanup(): void {
+    console.log("[CLEANUP] Interrupted, stopping servers...");
+    if (testServerProcess) {
+        testServerProcess.kill("SIGTERM");
+    }
+    if (mockServerProcess) {
+        mockServer.stopMockServer(mockServerProcess);
+    }
+}
+
+// Register cleanup handlers for process interruption
+process.on("SIGINT", globalCleanup);
+process.on("SIGTERM", globalCleanup);
+
+/**
  * Setup admin user via API
  * Creates an admin user via API if needed, returns the admin token
  */
@@ -88,6 +105,7 @@ export { setupAdminUser };
 function startTestServer(): Promise<void> {
     return new Promise((resolve, reject) => {
         const isWorkerMode = config.TEST_MODE === "worker";
+        const port = config.SERVER_CONFIG.port;
 
         let command: string[];
         let env: NodeJS.ProcessEnv = { ...process.env };
@@ -102,20 +120,20 @@ function startTestServer(): Promise<void> {
                 "--config",
                 TEST_WRANGLER_CONFIG,
                 "--port",
-                config.SERVER_CONFIG.port.toString(),
+                port.toString(),
             ];
-            env.PORT = config.SERVER_CONFIG.port.toString();
+            env.PORT = port.toString();
         } else {
             // Node mode: use tsx src/local.ts
             const serverPath = join(process.cwd(), "src", "local.ts");
             command = ["tsx", serverPath];
-            env.PORT = config.SERVER_CONFIG.port.toString();
+            env.PORT = port.toString();
             env.DB_PATH = config.DB_CONFIG.path;
             env.ROOT_TOKEN = "test-root-token-123";
         }
 
         console.log(
-            `Starting test server in ${config.TEST_MODE} mode on port ${config.SERVER_CONFIG.port}`,
+            `Starting test server in ${config.TEST_MODE} mode on port ${port}`,
         );
         if (!isWorkerMode) {
             console.log("Database path:", config.DB_CONFIG.path);
@@ -127,6 +145,13 @@ function startTestServer(): Promise<void> {
         });
 
         let serverStarted = false;
+        let timeoutId: NodeJS.Timeout;
+
+        const cleanup = () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
 
         testServerProcess.stdout?.on("data", (data) => {
             const output = data.toString().trim();
@@ -140,14 +165,16 @@ function startTestServer(): Promise<void> {
                     // "Ready on http://localhost:8787" or contains "Ready"
                     if (
                         output.includes("Ready") ||
-                        output.includes("localhost:" + config.SERVER_CONFIG.port)
+                        output.includes("localhost:" + port)
                     ) {
                         serverStarted = true;
+                        cleanup();
                         resolve();
                     }
                 } else {
                     if (output.includes("Server listening")) {
                         serverStarted = true;
+                        cleanup();
                         resolve();
                     }
                 }
@@ -169,23 +196,32 @@ function startTestServer(): Promise<void> {
                 if (
                     !serverStarted &&
                     (error.includes("Ready") ||
-                        error.includes("localhost:" + config.SERVER_CONFIG.port))
+                        error.includes("localhost:" + port))
                 ) {
                     serverStarted = true;
+                    cleanup();
                     resolve();
                 }
                 return;
             }
             console.error("[SERVER ERROR]", error);
+            cleanup();
             reject(new Error(error));
         });
 
         testServerProcess.on("error", (err) => {
+            cleanup();
             reject(err);
         });
 
+        testServerProcess.on("exit", () => {
+            cleanup();
+            testServerProcess = null;
+        });
+
         // 设置超时
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
+            cleanup();
             if (!serverStarted) {
                 reject(
                     new Error(`Server startup timeout (${startupTimeout}ms)`),
@@ -199,9 +235,27 @@ function stopTestServer(): Promise<void> {
     return new Promise((resolve) => {
         if (testServerProcess) {
             console.log("Stopping test server...");
+
+            // Try graceful shutdown with SIGTERM
             testServerProcess.kill("SIGTERM");
-            testServerProcess = null;
+
+            // Wait for process to exit (up to 5 seconds)
+            const timeout = setTimeout(() => {
+                // If process doesn't exit, use SIGKILL as last resort
+                console.log("[CLEANUP] Force killing test server...");
+                testServerProcess!.kill("SIGKILL");
+                testServerProcess = null;
+                resolve();
+            }, 5000);
+
+            testServerProcess.once("exit", () => {
+                clearTimeout(timeout);
+                testServerProcess = null;
+                console.log("Test server stopped");
+                resolve();
+            });
+        } else {
+            resolve();
         }
-        resolve();
     });
 }
