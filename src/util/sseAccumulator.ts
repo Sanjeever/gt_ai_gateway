@@ -40,6 +40,10 @@ interface AnthropicSSEMessage {
             output_tokens?: number;
         };
     };
+    usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+    };
     delta?: {
         text?: string;
     };
@@ -151,11 +155,13 @@ class SSEAccumulator {
         if (msg.message?.stop_reason !== undefined) {
             this.response.choices[0].finish_reason = msg.message.stop_reason;
         }
-        if (msg.message?.usage) {
+        // Handle usage from message_start or message_stop events
+        if (msg.message?.usage || msg.usage) {
+            const usage = msg.usage || msg.message?.usage;
             this.response.usage = {
-                prompt_tokens: msg.message.usage.input_tokens,
-                completion_tokens: msg.message.usage.output_tokens,
-                total_tokens: (msg.message.usage.input_tokens || 0) + (msg.message.usage.output_tokens || 0),
+                prompt_tokens: usage.input_tokens,
+                completion_tokens: usage.output_tokens,
+                total_tokens: (usage.input_tokens || 0) + (usage.output_tokens || 0),
             };
         }
         // 累积文本内容

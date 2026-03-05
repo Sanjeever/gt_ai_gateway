@@ -136,6 +136,9 @@ describe("Record API", () => {
         let openaiVendorId: number;
         let openaiModelId: number;
         let openaiModelName: string;
+        let anthropicVendorId: number;
+        let anthropicModelId: number;
+        let anthropicModelName: string;
         let config: any;
 
         beforeAll(async () => {
@@ -149,9 +152,18 @@ describe("Record API", () => {
             );
             openaiVendorId = openaiVendor.body.id;
 
-            // Get model name from config
+            // Create Anthropic vendor
+            const anthropicVendor = await requestHelper.post(
+                "/vendor/create.json",
+                vendorFixtures.VENDOR_FIXTURES.anthropic(),
+                adminToken,
+            );
+            anthropicVendorId = anthropicVendor.body.id;
+
+            // Get model names from config
             const upstreamConfig = config.default.getCurrentUpstreamConfig();
             openaiModelName = upstreamConfig.openai.model;
+            anthropicModelName = upstreamConfig.anthropic.model;
 
             // Create OpenAI model
             const openaiModel = await requestHelper.post(
@@ -160,6 +172,14 @@ describe("Record API", () => {
                 adminToken,
             );
             openaiModelId = openaiModel.body.id;
+
+            // Create Anthropic model
+            const anthropicModel = await requestHelper.post(
+                "/model/create.json",
+                modelFixtures.createRandomModel(anthropicVendorId, anthropicModelName),
+                adminToken,
+            );
+            anthropicModelId = anthropicModel.body.id;
         });
 
         it("should create record with default statistics values after chat request", async () => {
@@ -349,6 +369,83 @@ describe("Record API", () => {
             expect(recordResponse.body.model_id).toBe(openaiModelId);
 
             // Verify token statistics for streaming (mock returns 8 prompt, 12 completion)
+            expect(recordResponse.body.prompt_tokens).toBe(8);
+            expect(recordResponse.body.output_tokens).toBe(12);
+
+            // Verify first_token_latency is recorded (should be positive for streaming)
+            expect(recordResponse.body.first_token_latency).toBeGreaterThan(0);
+
+            // Verify timing fields
+            expect(recordResponse.body.start_at).toBeTruthy();
+            expect(recordResponse.body.end_at).toBeTruthy();
+        });
+
+        it("should return correct statistics for Anthropic non-streaming requests", async () => {
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
+                model: anthropicModelName,
+                stream: false,
+            });
+
+            await requestHelper.post(
+                "/v1/messages",
+                messageRequest,
+                testUserToken,
+            );
+
+            const recordsResponse = await requestHelper.get(
+                "/record/latest.json?limit=1",
+                adminToken,
+            );
+
+            const record = recordsResponse.body[0];
+            const recordResponse = await requestHelper.get(
+                `/record/${record.id}`,
+                adminToken,
+            );
+
+            expect(recordResponse.status).toBe(200);
+            expect(recordResponse.body.status).toBe("success");
+            expect(recordResponse.body.user_id).toBe(testUserId);
+            expect(recordResponse.body.model_id).toBe(anthropicModelId);
+
+            // Verify token statistics (mock returns 10 input, 15 output)
+            expect(recordResponse.body.prompt_tokens).toBe(10);
+            expect(recordResponse.body.output_tokens).toBe(15);
+
+            // Verify timing fields
+            expect(recordResponse.body.start_at).toBeTruthy();
+            expect(recordResponse.body.end_at).toBeTruthy();
+        });
+
+        it("should return correct statistics for Anthropic streaming requests", async () => {
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
+                model: anthropicModelName,
+                stream: true,
+            });
+
+            await requestHelper.post(
+                "/v1/messages",
+                messageRequest,
+                testUserToken,
+            );
+
+            const recordsResponse = await requestHelper.get(
+                "/record/latest.json?limit=1",
+                adminToken,
+            );
+
+            const record = recordsResponse.body[0];
+            const recordResponse = await requestHelper.get(
+                `/record/${record.id}`,
+                adminToken,
+            );
+
+            expect(recordResponse.status).toBe(200);
+            expect(recordResponse.body.status).toBe("success");
+            expect(recordResponse.body.user_id).toBe(testUserId);
+            expect(recordResponse.body.model_id).toBe(anthropicModelId);
+
+            // Verify token statistics for streaming (mock returns 8 input, 12 output)
             expect(recordResponse.body.prompt_tokens).toBe(8);
             expect(recordResponse.body.output_tokens).toBe(12);
 
