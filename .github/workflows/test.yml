@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: npm run build
+
       - name: Run tests (Node mode)
         run: npm run test:node
 
@@ -45,6 +51,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: npm run build
 
       - name: Run tests (Worker mode)
         run: npm run test:worker
