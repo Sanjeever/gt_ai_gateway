@@ -15,9 +15,13 @@
         >
             <a-form-item label="类型" name="type">
                 <a-select v-model:value="formState.type" placeholder="请选择供应商类型">
+                    <a-select-option value="aliyun">Aliyun (通义千问)</a-select-option>
+                    <a-select-option value="aliyun_coding">Aliyun Coding</a-select-option>
+                    <a-select-option value="deepseek">DeepSeek</a-select-option>
                     <a-select-option value="openai">OpenAI</a-select-option>
                     <a-select-option value="anthropic">Anthropic</a-select-option>
                     <a-select-option value="google">Google</a-select-option>
+                    <a-select-option value="other">Other</a-select-option>
                 </a-select>
             </a-form-item>
             <a-form-item label="名称" name="name">
