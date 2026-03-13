@@ -95,6 +95,37 @@ Wrangler 会启动本地开发服务器，模拟 Cloudflare Workers 环境
 | `npm run backend:deploy` | 部署到 Cloudflare Workers |
 | `npm run backend:test` | 运行后端测试 |
 
+## 数据库配置
+
+### 数据库类型
+
+| 环境 | 数据库 | 说明 |
+|------|--------|------|
+| **本地模式 (Node.js)** | SQLite (`better-sqlite3`) | 本地文件存储 |
+| **云端模式 (Cloudflare)** | Cloudflare D1 | 分布式 SQL 数据库 |
+
+### 本地模式数据库路径
+
+在本地 Node.js 模式运行或使用 `script/db.ts` 脚本时，数据库位置遵循以下规则：
+
+1.  **优先级 1**: 环境变量 `DB_PATH`（支持绝对路径或相对路径）。
+2.  **优先级 2**: 默认为项目根目录下的 `local.db` 文件。
+
+#### 修改数据库位置
+
+你可以通过在 `.dev.vars` 文件中设置 `DB_PATH` 来修改位置：
+
+```bash
+# .dev.vars
+DB_PATH=/path/to/your/custom.db
+```
+
+#### Docker 环境
+
+在 Docker 镜像中，默认配置为：
+- 容器内路径：`/app/data/local.db`
+- 挂载点建议：将宿主机目录挂载到容器的 `/app/data` 目录以实现数据持久化。
+
 ### MVC 架构
 
 项目遵循 MVC 架构模式：
