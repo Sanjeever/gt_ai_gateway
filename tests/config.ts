@@ -113,7 +113,7 @@ const UPSTREAM_CONFIG = {
         model:
             REAL_API_CONFIG?.openai?.model ||
             process.env.TEST_UPSTREAM_OPENAI_MODEL ||
-            "glm-4.7",
+            "gpt-3.5-turbo",
     },
     anthropic: {
         url:
@@ -127,7 +127,7 @@ const UPSTREAM_CONFIG = {
         model:
             REAL_API_CONFIG?.anthropic?.model ||
             process.env.TEST_UPSTREAM_ANTHROPIC_MODEL ||
-            "glm-4.7",
+            "claude-3-haiku-20240307",
     },
     mock: {
         enabled: !REAL_API_MODE,
@@ -177,12 +177,12 @@ function getCurrentUpstreamConfig() {
         openai: {
             url: UPSTREAM_CONFIG.mock.url + "/chat/completions",
             apiKey: "",
-            model: "glm-4.7",
+            model: "gpt-3.5-turbo",
         },
         anthropic: {
             url: UPSTREAM_CONFIG.mock.url + "/messages",
             apiKey: "",
-            model: "glm-4.7",
+            model: "claude-3-haiku-20240307",
         },
     };
 }

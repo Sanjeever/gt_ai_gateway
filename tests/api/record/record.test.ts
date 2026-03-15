@@ -165,8 +165,8 @@ describe("Record API", () => {
 
             // Get model names from config
             const upstreamConfig = config.default.getCurrentUpstreamConfig();
-            openaiModelName = upstreamConfig.openai.model + "-openai";
-            anthropicModelName = upstreamConfig.anthropic.model + "-anthropic";
+            openaiModelName = upstreamConfig.openai.model;
+            anthropicModelName = upstreamConfig.anthropic.model;
 
             // Create OpenAI model
             const openaiModel = await requestHelper.post(

@@ -45,7 +45,7 @@ describe("AI Messages API (Anthropic)", () => {
 
         // Get model name from config
         const upstreamConfig = config.getCurrentUpstreamConfig();
-        anthropicModelName = upstreamConfig.anthropic.model + "-anthropic";
+        anthropicModelName = upstreamConfig.anthropic.model;
 
         // Create Anthropic model
         const anthropicModel = await requestHelper.post(

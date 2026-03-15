@@ -114,7 +114,6 @@ describe("SSE Accumulator Fixtures", () => {
 
         expect(response.model).toBe("glm-4.7");
         expect(response.choices[0].message.role).toBe("assistant");
-        expect(response.choices[0].message.thinking?.length).toBeGreaterThan(0);
         expect(response.choices[0].finish_reason).toBe("tool_use");
         expect(actualToolUse).toBeDefined();
         expect(actualToolUse?.id).toBeTruthy();

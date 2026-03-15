@@ -55,8 +55,8 @@ describe("AI Chat API", () => {
 
         // Get model names from config
         const upstreamConfig = config.getCurrentUpstreamConfig();
-        openaiModelName = upstreamConfig.openai.model + "-openai";
-        anthropicModelName = upstreamConfig.anthropic.model + "-anthropic";
+        openaiModelName = upstreamConfig.openai.model;
+        anthropicModelName = upstreamConfig.anthropic.model;
 
         // Create OpenAI model
         const openaiModel = await requestHelper.post(
