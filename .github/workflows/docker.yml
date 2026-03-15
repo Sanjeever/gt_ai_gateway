@@ -13,6 +13,9 @@ on:
             - main
     workflow_dispatch:
 
+env:
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
     docker-build:
         name: Build and Push Docker Image
