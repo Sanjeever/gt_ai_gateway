@@ -111,7 +111,7 @@ async function loadVendors() {
 function open(model: Model) {
     formState.name = model.name;
     formState.vendor_id = model.vendor_id;
-    formState.enable = model.enable;
+    formState.enable = Boolean(model.enable); // Convert number to boolean
     formState.input_price = model.input_price;
     formState.output_price = model.output_price;
     currentId.value = model.id;

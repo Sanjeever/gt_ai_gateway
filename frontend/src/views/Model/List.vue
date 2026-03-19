@@ -53,6 +53,18 @@
                         {{ record.enable ? '启用' : '禁用' }}
                     </a-tag>
                 </template>
+                <template v-if="column.key === 'price'">
+                    <div class="price-display">
+                        <div class="price-row">
+                            <a-tooltip title="输入价格">↓</a-tooltip>
+                            <span>¥{{ (record.input_price || 0).toFixed(6) }}</span>
+                        </div>
+                        <div class="price-row">
+                            <a-tooltip title="输出价格">↑</a-tooltip>
+                            <span>¥{{ (record.output_price || 0).toFixed(6) }}</span>
+                        </div>
+                    </div>
+                </template>
                 <template v-if="column.key === 'action'">
                     <a-space>
                         <a-button type="link" @click="handleEdit(record)">
@@ -97,6 +109,7 @@ const columns = [
     { title: '模型名称', key: 'name', dataIndex: 'name' },
     { title: '所属供应商', key: 'vendor_id', dataIndex: 'vendor_id', width: 150 },
     { title: '状态', key: 'enable', dataIndex: 'enable', width: 100 },
+    { title: '价格 (元/千tokens)', key: 'price', dataIndex: 'price', width: 180 },
     { title: '创建时间', key: 'created_at', dataIndex: 'created_at', width: 180 },
     { title: '操作', key: 'action', width: 120, fixed: 'right' as const },
 ];
@@ -186,5 +199,23 @@ function getVendorName(vendorId: number): string {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 16px;
+}
+
+.price-display {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.price-row .anticon {
+    font-size: 10px;
+    color: #8c8c8c;
 }
 </style>

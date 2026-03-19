@@ -12,9 +12,15 @@
                     {{ model.vendor_id }}
                 </a-descriptions-item>
                 <a-descriptions-item label="状态">
-                    <a-tag :color="model.enable ? 'green' : 'red'">
-                        {{ model.enable ? '启用' : '禁用' }}
+                    <a-tag :color="Boolean(model.enable) ? 'green' : 'red'">
+                        {{ Boolean(model.enable) ? '启用' : '禁用' }}
                     </a-tag>
+                </a-descriptions-item>
+                <a-descriptions-item label="输入价格">
+                    ¥{{ (model.input_price || 0).toFixed(6) }} / 千tokens
+                </a-descriptions-item>
+                <a-descriptions-item label="输出价格">
+                    ¥{{ (model.output_price || 0).toFixed(6) }} / 千tokens
                 </a-descriptions-item>
                 <a-descriptions-item label="创建时间">
                     {{ formatDate(model.created_at) }}
