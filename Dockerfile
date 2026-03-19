@@ -36,7 +36,6 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 COPY script ./script
 COPY src ./src
 COPY resource ./resource
-COPY package*.json ./
 COPY docker-entrypoint.sh ./
 COPY tsconfig.json ./
 
@@ -44,7 +43,7 @@ COPY tsconfig.json ./
 FROM node:20-alpine
 WORKDIR /app
 
-# 安装运行时依赖、创建目录、设置权限 (合并为一层)
+# 安装运行时依赖、创建目录、设置权限
 RUN apk add --no-cache libstdc++ && \
     mkdir -p /app/data
 
@@ -53,6 +52,7 @@ COPY --from=builder \
     /app/node_modules ./node_modules \
     /app/package*.json ./package*.json \
     /app/docker-entrypoint.sh ./docker-entrypoint.sh \
+    /app/tsconfig.json ./tsconfig.json \
     /app/src ./src \
     /app/frontend/dist ./frontend/dist \
     /app/script ./script \
