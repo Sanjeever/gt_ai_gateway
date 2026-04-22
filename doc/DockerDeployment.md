@@ -82,6 +82,13 @@ docker start serverless_ai_gateway
 docker rm -f serverless_ai_gateway
 ```
 
+### 直接执行 db 工具
+
+```bash
+docker exec -it serverless_ai_gateway npx tsx script/db.ts status --env local
+docker exec -it serverless_ai_gateway npm run db:migrate:local
+```
+
 ---
 
 ## 使用 Docker Hub
