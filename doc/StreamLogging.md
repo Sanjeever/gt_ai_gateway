@@ -81,7 +81,7 @@ data: [DONE]
 
 ### 1. 启用流式日志功能
 
-流式日志记录功能**默认不启用**，需要通过环境变量开启，并且仅在 node 模式下可用。
+流式日志记录功能**默认不启用**，需要通过环境变量开启，并且仅在本地 Node 模式下可用。
 
 #### 启用方法
 
@@ -89,18 +89,16 @@ data: [DONE]
 
 ```bash
 # 方式一：在命令行中设置
-TEST_MODE=node STREAM_LOG_ENABLED=true npm run backend:start:local
+STREAM_LOG_ENABLED=true npm run backend:start
 
 # 方式二：在 .env 文件中设置
-echo "TEST_MODE=node" >> .env
-echo "STREAM_LOG_ENABLED=true" >> .env
+echo "STREAM_LOG_ENABLED=true" >> .dev.vars
 
 # 方式三：在 package.json 脚本中设置
-"backend:start:log": "TEST_MODE=node STREAM_LOG_ENABLED=true npx tsx src/local.ts"
+"backend:start:log": "STREAM_LOG_ENABLED=true npx tsx src/local.ts"
 ```
 
 **环境变量说明：**
-- `TEST_MODE=node` - 必须设置为 `node`，表示在 node 模式下运行
 - `STREAM_LOG_ENABLED=true` - 启用流式日志记录功能
 
 #### 检查是否启用
@@ -118,7 +116,7 @@ echo "STREAM_LOG_ENABLED=true" >> .env
 
 ```bash
 # 使用启用了日志功能的命令启动
-TEST_MODE=node STREAM_LOG_ENABLED=true npm run backend:start:local
+STREAM_LOG_ENABLED=true npm run backend:start
 ```
 
 服务启动后，`log/stream/` 目录会自动创建（如果不存在）。
