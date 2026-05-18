@@ -40,3 +40,9 @@ resource/test_real_config.json
 
 # docker
 data/
+
+# tauri build artifacts
+dist-tauri-backend/
+tauri/src-tauri/target/
+tauri/src-tauri/binaries/
+tauri/node_modules/

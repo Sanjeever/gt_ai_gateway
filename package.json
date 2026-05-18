@@ -31,7 +31,13 @@
     "db:status:worker-local": "npx tsx script/db.ts status --env worker-local",
     "db:migrate:worker-cloud": "npx tsx script/db.ts migrate --env worker-cloud",
     "db:clear:worker-cloud": "npx tsx script/db.ts clear --env worker-cloud",
-    "db:status:worker-cloud": "npx tsx script/db.ts status --env worker-cloud"
+    "db:status:worker-cloud": "npx tsx script/db.ts status --env worker-cloud",
+    "tauri:build-backend": "npx esbuild src/local.ts --bundle --platform=node --target=node18 --outfile=dist-tauri-backend/index.js --external:better-sqlite3 --external:mysql2 --external:mysql --external:tedious --external:pg --external:pg-native --external:oracledb --external:sqlite3 --external:pg-query-stream --format=cjs --supported:dynamic-import=false && npx pkg dist-tauri-backend/index.js --target node24-macos-arm64 --output tauri/src-tauri/binaries/backend-aarch64-apple-darwin --config package.json"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+    ]
   },
   "dependencies": {
     "@fortaine/fetch-event-source": "^3.0.6",
@@ -51,7 +57,9 @@
     "@types/dotenv": "^6.1.1",
     "@types/sqlite3": "^3.1.11",
     "@types/uuid": "^10.0.0",
+    "@vercel/ncc": "^0.38.4",
     "@vitest/coverage-v8": "^4.0.18",
+    "@yao-pkg/pkg": "^6.19.0",
     "sqlite3": "^5.1.7",
     "ts-prune": "^0.10.3",
     "vitest": "^4.0.18",
