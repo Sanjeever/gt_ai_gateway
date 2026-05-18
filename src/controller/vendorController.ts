@@ -145,7 +145,7 @@ async function deleteVendor(c: Context) {
         throw new customError.AppError("Cannot delete vendor with associated models");
     }
 
-    await SgVendor.query().delete(vendorId);
+    await SgVendor.query().where("id", vendorId).delete();
 
     return c.json({ success: true });
 }

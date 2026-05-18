@@ -280,4 +280,31 @@ describe("Vendor API (Positive)", () => {
             expect(response.body.token).toBe(originalToken);
         });
     });
+
+    describe("DELETE /vendor/:id", () => {
+        it("should only delete the specified vendor, not others", async () => {
+            // 创建两个供应商
+            const vendorAData = vendorFixtures.createRandomVendor({ name: "Vendor A" });
+            const vendorBData = vendorFixtures.createRandomVendor({ name: "Vendor B" });
+
+            const resA = await requestHelper.post("/vendor/create.json", vendorAData, adminToken);
+            const resB = await requestHelper.post("/vendor/create.json", vendorBData, adminToken);
+            const vendorAId = resA.body.id;
+            const vendorBId = resB.body.id;
+
+            // 删除 Vendor A
+            const deleteRes = await requestHelper.del(`/vendor/${vendorAId}`, adminToken);
+            expect(deleteRes.status).toBe(200);
+            expect(deleteRes.body.success).toBe(true);
+
+            // Vendor A 应该不存在了
+            const getARes = await requestHelper.get(`/vendor/${vendorAId}`, adminToken);
+            expect(getARes.status).toBe(404);
+
+            // Vendor B 应该依然存在
+            const getBRes = await requestHelper.get(`/vendor/${vendorBId}`, adminToken);
+            expect(getBRes.status).toBe(200);
+            expect(getBRes.body.id).toBe(vendorBId);
+        });
+    });
 });
