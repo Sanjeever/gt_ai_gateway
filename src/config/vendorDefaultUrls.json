@@ -28,5 +28,11 @@
     },
     "opencode_go": {
         "openai": "https://opencode.ai/zen/go/v1"
+    },
+    "anthropic": {
+        "anthropic": "https://api.anthropic.com"
+    },
+    "google": {
+        "openai": "https://generativelanguage.googleapis.com/v1beta/openai"
     }
 }

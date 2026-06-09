@@ -31,4 +31,10 @@ export const VENDOR_PRESET_URLS: Partial<Record<VendorType, Record<string, strin
     openai: {
         openai: 'https://api.openai.com/v1/chat/completions',
     },
+    anthropic: {
+        anthropic: 'https://api.anthropic.com',
+    },
+    google: {
+        openai: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    },
 };
