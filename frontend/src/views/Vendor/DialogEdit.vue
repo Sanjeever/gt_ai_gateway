@@ -37,50 +37,66 @@
                 />
             </a-form-item>
             <a-form-item label="URLs 配置">
-                <div v-for="(item, index) in urlsForm" :key="index" class="url-item">
-                    <a-row :gutter="8" align="middle">
-                        <a-col :span="6">
-                            <a-select v-model:value="item.type" style="width: 100%" placeholder="请选择 URL 类型">
-                                <a-select-option
-                                    v-for="type in URL_TYPES"
-                                    :key="type.value"
-                                    :value="type.value"
-                                    :disabled="urlsForm.some((u, i) => u.type === type.value && i !== index)"
-                                >
-                                    {{ type.label }}
-                                </a-select-option>
-                            </a-select>
-                        </a-col>
-                        <a-col :span="16">
-                            <a-input
-                                v-model:value="item.url"
-                                placeholder="请输入 URL"
-                            />
-                        </a-col>
-                        <a-col :span="2">
-                            <a-button type="text" danger @click="removeUrl(index)">
-                                <DeleteOutlined />
-                            </a-button>
-                        </a-col>
-                    </a-row>
-                </div>
-                <a-button
-                    type="dashed"
-                    block
-                    @click="addUrl"
-                    :disabled="urlsForm.length >= URL_TYPES.length"
-                >
-                    <PlusOutlined /> 添加 URL
-                </a-button>
+                <!-- 查看模式：合并展示 preset + 用户自定义 -->
+                <template v-if="urlsMode === 'view'">
+                    <div class="urls-view">
+                        <div v-for="item in mergedUrls" :key="item.key" class="url-view-item">
+                            <span class="url-key">{{ item.key }}:</span>
+                            <span class="url-value">{{ item.url }}</span>
+                            <a-tag v-if="item.isCustom" color="blue" class="custom-tag">自定义</a-tag>
+                        </div>
+                    </div>
+                    <a-button type="link" size="small" class="toggle-btn" @click="urlsMode = 'edit'">
+                        <EditOutlined /> 编辑
+                    </a-button>
+                </template>
+                <!-- 编辑模式：仅用户自定义条目 -->
+                <template v-else>
+                    <div v-for="(item, index) in urlsForm" :key="index" class="url-item">
+                        <a-row :gutter="8" align="middle">
+                            <a-col :span="6">
+                                <a-select v-model:value="item.type" style="width: 100%" placeholder="请选择 URL 类型">
+                                    <a-select-option
+                                        v-for="type in URL_TYPES"
+                                        :key="type.value"
+                                        :value="type.value"
+                                        :disabled="urlsForm.some((u, i) => u.type === type.value && i !== index)"
+                                    >
+                                        {{ type.label }}
+                                    </a-select-option>
+                                </a-select>
+                            </a-col>
+                            <a-col :span="16">
+                                <a-input v-model:value="item.url" placeholder="请输入 URL" />
+                            </a-col>
+                            <a-col :span="2">
+                                <a-button type="text" danger @click="removeUrl(index)">
+                                    <DeleteOutlined />
+                                </a-button>
+                            </a-col>
+                        </a-row>
+                    </div>
+                    <a-button
+                        type="dashed"
+                        block
+                        @click="addUrl"
+                        :disabled="urlsForm.length >= URL_TYPES.length"
+                    >
+                        <PlusOutlined /> 添加 URL
+                    </a-button>
+                    <a-button v-if="presetUrls" type="link" size="small" class="toggle-btn" @click="urlsMode = 'view'">
+                        返回查看
+                    </a-button>
+                </template>
             </a-form-item>
         </a-form>
     </a-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import type { FormInstance } from 'ant-design-vue/es';
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons-vue';
 import { updateVendor } from '@/api/vendor';
 import type { UpdateVendorRequest, Vendor, VendorType, VendorUrls } from '@/types/vendor';
 import { notifyRequestError, notifySuccess } from '@/utils/requestFeedback';
@@ -98,6 +114,37 @@ const URL_TYPES = [
     { label: 'Anthropic', value: 'anthropic' },
 ];
 
+// 与后端 vendorDefaultUrls.json 保持一致
+const PRESET_URLS: Partial<Record<VendorType, Record<string, string>>> = {
+    aliyun: {
+        openai: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        anthropic: 'https://dashscope.aliyuncs.com/apps/anthropic',
+    },
+    aliyun_coding: {
+        openai: 'https://coding.dashscope.aliyuncs.com/v1',
+        anthropic: 'https://coding.dashscope.aliyuncs.com/apps/anthropic',
+    },
+    volcengine_coding: {
+        openai: 'https://ark.cn-beijing.volces.com/api/coding/v3',
+        anthropic: 'https://ark.cn-beijing.volces.com/api/coding',
+    },
+    deepseek: {
+        openai: 'https://api.deepseek.com/v1/chat/completions',
+        anthropic: 'https://api.deepseek.com/anthropic',
+    },
+    mimo: {
+        openai: 'https://api.xiaomimimo.com/v1',
+        anthropic: 'https://api.xiaomimimo.com/anthropic',
+    },
+    mimo_token_plan: {
+        openai: 'https://token-plan-cn.xiaomimimo.com/v1',
+        anthropic: 'https://token-plan-cn.xiaomimimo.com/anthropic',
+    },
+    openai: {
+        openai: 'https://api.openai.com/v1/chat/completions',
+    },
+};
+
 const currentId = ref<number>(0);
 
 const formState = reactive({
@@ -106,7 +153,32 @@ const formState = reactive({
     token: '',
 });
 
-const urlsForm = reactive<{ type: string; url: string }[]>([{ type: 'openai', url: '' }]);
+const urlsMode = ref<'view' | 'edit'>('view');
+
+// 用户自定义条目（从 vendor.urls 初始化）
+const urlsForm = reactive<{ type: string; url: string }[]>([]);
+
+const presetUrls = computed(() => PRESET_URLS[formState.type] ?? null);
+
+// 查看模式：preset 为底，用户自定义覆盖，有自定义的标记
+const mergedUrls = computed(() => {
+    const preset = PRESET_URLS[formState.type] ?? {};
+    const customMap: Record<string, string> = {};
+    urlsForm.forEach(item => {
+        if (item.url) customMap[item.type] = item.url;
+    });
+    const keys = new Set([...Object.keys(preset), ...Object.keys(customMap)]);
+    return Array.from(keys).map(key => ({
+        key,
+        url: customMap[key] ?? preset[key] ?? '',
+        isCustom: !!customMap[key],
+    }));
+});
+
+// 切换类型时只更新模式，保留用户已填写的自定义 URLs
+watch(() => formState.type, (newType) => {
+    urlsMode.value = PRESET_URLS[newType] ? 'view' : 'edit';
+});
 
 const rules = {
     type: [{ required: true, message: '请选择供应商类型' }],
@@ -120,19 +192,13 @@ function open(vendor: Vendor) {
     formState.name = vendor.name;
     formState.token = vendor.token;
 
+    // 加载已保存的自定义 URLs
     urlsForm.splice(0, urlsForm.length);
-    Object.keys(vendor.urls).forEach(key => {
-        const url = vendor.urls[key];
-        if (url !== undefined) {
-            urlsForm.push({ type: key, url });
-        }
+    Object.entries(vendor.urls).forEach(([key, url]) => {
+        if (url !== undefined) urlsForm.push({ type: key, url });
     });
 
-    if (urlsForm.length === 0) {
-        const firstType = URL_TYPES[0]!.value;
-        urlsForm.push({ type: firstType, url: '' });
-    }
-
+    urlsMode.value = PRESET_URLS[vendor.type] ? 'view' : 'edit';
     visible.value = true;
 }
 
@@ -153,18 +219,16 @@ async function handleOk() {
         await formRef.value?.validate();
 
         const urls: VendorUrls = {};
+        urlsForm.forEach(item => {
+            if (item.url) urls[item.type] = item.url;
+        });
+
         const updateData: UpdateVendorRequest = {
             type: formState.type,
             name: formState.name,
             token: formState.token,
             urls,
         };
-
-        urlsForm.forEach(item => {
-            if (item.url) {
-                urls[item.type] = item.url;
-            }
-        });
 
         loading.value = true;
         const vendor = await updateVendor(currentId.value, updateData);
@@ -180,10 +244,6 @@ async function handleOk() {
 
 function handleCancel() {
     visible.value = false;
-    formState.type = 'openai';
-    formState.name = '';
-    formState.token = '';
-    urlsForm.splice(0, urlsForm.length, { type: 'openai', url: '' });
 }
 
 defineExpose({ open });
@@ -192,5 +252,44 @@ defineExpose({ open });
 <style scoped>
 .url-item {
     margin-bottom: 12px;
+}
+
+.urls-view {
+    border: 1px solid var(--color-border, #d9d9d9);
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: var(--color-bg-container-disabled, #f5f5f5);
+}
+
+.url-view-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 13px;
+}
+
+.url-key {
+    color: var(--color-text-secondary, #888);
+    text-transform: uppercase;
+    font-size: 11px;
+    min-width: 72px;
+    flex-shrink: 0;
+}
+
+.url-value {
+    color: var(--color-text, #333);
+    word-break: break-all;
+    flex: 1;
+}
+
+.custom-tag {
+    flex-shrink: 0;
+}
+
+.toggle-btn {
+    padding: 0;
+    margin-top: 6px;
+    height: auto;
 }
 </style>
