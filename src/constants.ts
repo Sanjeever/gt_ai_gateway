@@ -10,6 +10,8 @@ export enum VendorType {
     ALIYUN_CODING = "aliyun_coding",
     VOLCENGINE_CODING = "volcengine_coding",
     DEEPSEEK = "deepseek",
+    MIMO = "mimo",
+    MIMO_TOKEN_PLAN = "mimo_token_plan",
     OTHER = "other",
 }
 

@@ -19,6 +19,8 @@
                     <a-select-option value="aliyun_coding">Aliyun Coding</a-select-option>
                     <a-select-option value="volcengine_coding">Volcengine Coding</a-select-option>
                     <a-select-option value="deepseek">DeepSeek</a-select-option>
+                    <a-select-option value="mimo">Mimo</a-select-option>
+                    <a-select-option value="mimo_token_plan">Mimo Token Plan</a-select-option>
                     <a-select-option value="openai">OpenAI</a-select-option>
                     <a-select-option value="anthropic">Anthropic</a-select-option>
                     <a-select-option value="google">Google</a-select-option>
@@ -94,7 +96,6 @@ const formRef = ref<FormInstance>();
 const URL_TYPES = [
     { label: 'OpenAI', value: 'openai' },
     { label: 'Anthropic', value: 'anthropic' },
-    { label: 'Google', value: 'google' },
 ];
 
 const currentId = ref<number>(0);

@@ -20,6 +20,8 @@
                         <a-select-option value="aliyun_coding">Aliyun Coding</a-select-option>
                         <a-select-option value="volcengine_coding">Volcengine Coding</a-select-option>
                         <a-select-option value="deepseek">DeepSeek</a-select-option>
+                        <a-select-option value="mimo">Mimo</a-select-option>
+                        <a-select-option value="mimo_token_plan">Mimo Token Plan</a-select-option>
                         <a-select-option value="openai">OpenAI</a-select-option>
                         <a-select-option value="anthropic">Anthropic</a-select-option>
                         <a-select-option value="google">Google</a-select-option>
@@ -167,6 +169,8 @@ function getTypeLabel(type: VendorType): string {
         aliyun_coding: 'Aliyun Coding',
         volcengine_coding: 'Volcengine Coding',
         deepseek: 'DeepSeek',
+        mimo: 'Mimo',
+        mimo_token_plan: 'Mimo Token Plan',
         openai: 'OpenAI',
         anthropic: 'Anthropic',
         google: 'Google',
@@ -181,6 +185,8 @@ function getTypeColor(type: VendorType): string {
         aliyun_coding: 'orange',
         volcengine_coding: 'purple',
         deepseek: '',
+        mimo: 'blue',
+        mimo_token_plan: 'blue',
         openai: 'green',
         anthropic: 'orange',
         google: '',
