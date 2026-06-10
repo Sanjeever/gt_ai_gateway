@@ -566,7 +566,7 @@ async function sendRequest(
             );
         }
 
-        converter = ConverterFactory.create(format, upstreamFormat);
+        converter = ConverterFactory.createPair(format, upstreamFormat);
         if (!converter) {
             throw new customError.AppError(
                 `Unsupported protocol conversion: ${format} → ${upstreamFormat}`,

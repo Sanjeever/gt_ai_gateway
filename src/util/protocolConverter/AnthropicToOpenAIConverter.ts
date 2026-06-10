@@ -19,6 +19,7 @@ const ANTHROPIC_TO_OPENAI_STOP_REASON: Record<string, string> = {
 
 export class AnthropicToOpenAIConverter extends BaseConverter {
     private currentToolCallIndex = -1;
+    private inputTokens = 0;
 
     public convertRequest(clientReq: AnthropicRequest): OpenAIRequest {
         const messages: OpenAIRequest["messages"] = [];
@@ -197,6 +198,7 @@ export class AnthropicToOpenAIConverter extends BaseConverter {
             if (message?.id) {
                 this.updateResponseId(message.id.startsWith("chatcmpl-") ? message.id : `chatcmpl-${message.id.replace("msg_", "")}`);
             }
+            this.inputTokens = message?.usage?.input_tokens ?? this.inputTokens;
 
             const chunk: OpenAIChunk = {
                 id: this.responseId,
@@ -345,10 +347,12 @@ export class AnthropicToOpenAIConverter extends BaseConverter {
             };
 
             if (msgDelta.usage) {
+                const promptTokens = msgDelta.usage.input_tokens ?? this.inputTokens;
+                const completionTokens = msgDelta.usage.output_tokens || 0;
                 chunk.usage = {
-                    prompt_tokens: msgDelta.usage.input_tokens || 0,
-                    completion_tokens: msgDelta.usage.output_tokens || 0,
-                    total_tokens: (msgDelta.usage.input_tokens || 0) + (msgDelta.usage.output_tokens || 0),
+                    prompt_tokens: promptTokens,
+                    completion_tokens: completionTokens,
+                    total_tokens: promptTokens + completionTokens,
                 };
             }
             return [{ data: JSON.stringify(chunk) }];

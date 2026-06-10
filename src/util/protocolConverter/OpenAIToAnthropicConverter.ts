@@ -340,7 +340,10 @@ export class OpenAIToAnthropicConverter extends BaseConverter {
                     data: JSON.stringify({
                         type: "message_delta",
                         delta: { stop_reason: stopReason, stop_sequence: null },
-                        usage: { output_tokens: chunk.usage?.completion_tokens || 0 },
+                        usage: {
+                            input_tokens: chunk.usage?.prompt_tokens || 0,
+                            output_tokens: chunk.usage?.completion_tokens || 0,
+                        },
                     }),
                 });
 

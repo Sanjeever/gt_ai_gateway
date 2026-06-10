@@ -2,6 +2,7 @@ import { ApiFormat } from "../../constants";
 import { BaseConverter } from "./BaseConverter";
 import { AnthropicToOpenAIConverter } from "./AnthropicToOpenAIConverter";
 import { OpenAIToAnthropicConverter } from "./OpenAIToAnthropicConverter";
+import { ProtocolPairConverter } from "./ProtocolPairConverter";
 
 export class ConverterFactory {
     /**
@@ -27,5 +28,23 @@ export class ConverterFactory {
         }
 
         return null;
+    }
+
+    public static createPair(
+        clientFormat: ApiFormat,
+        upstreamFormat: ApiFormat,
+        requestModel?: string
+    ): BaseConverter | null {
+        if (clientFormat === upstreamFormat) {
+            return null;
+        }
+
+        const requestConverter = this.create(clientFormat, upstreamFormat, requestModel);
+        const responseConverter = this.create(upstreamFormat, clientFormat, requestModel);
+        if (!requestConverter || !responseConverter) {
+            return null;
+        }
+
+        return new ProtocolPairConverter(requestConverter, responseConverter);
     }
 }

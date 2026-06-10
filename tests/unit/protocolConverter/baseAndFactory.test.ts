@@ -7,6 +7,7 @@ import { AnthropicToOpenAIConverter } from "../../../src/util/protocolConverter/
 import { OpenAIToAnthropicConverter } from "../../../src/util/protocolConverter/OpenAIToAnthropicConverter";
 import { ConverterFactory } from "../../../src/util/protocolConverter/ConverterFactory";
 import { BaseConverter } from "../../../src/util/protocolConverter/BaseConverter";
+import { ProtocolPairConverter } from "../../../src/util/protocolConverter/ProtocolPairConverter";
 import { ApiFormat } from "../../../src/constants";
 import customError from "../../../src/util/customError";
 import type { ProtocolStreamEvent } from "../../../src/util/protocolConverter/protocolTypes";
@@ -125,5 +126,30 @@ describe("ConverterFactory", () => {
     it("should return null for unsupported conversions", () => {
         expect(ConverterFactory.create(ApiFormat.OPENAI, ApiFormat.RESPONSES)).toBeNull();
         expect(ConverterFactory.create(ApiFormat.GOOGLE, ApiFormat.OPENAI)).toBeNull();
+    });
+
+    it("should create a pair converter for request and response conversion", () => {
+        const converter = ConverterFactory.createPair(ApiFormat.OPENAI, ApiFormat.ANTHROPIC);
+
+        expect(converter).toBeInstanceOf(ProtocolPairConverter);
+
+        const upstreamRequest = converter!.convertRequest({
+            model: "gpt-4",
+            messages: [{ role: "user", content: "Hello" }],
+        });
+        expect(upstreamRequest.max_tokens).toBe(4096);
+        expect(upstreamRequest.messages[0].content).toBe("Hello");
+
+        const clientResponse = converter!.convertResponse({
+            id: "msg_123",
+            type: "message",
+            role: "assistant",
+            content: [{ type: "text", text: "Hi" }],
+            model: "claude-3-haiku-20240307",
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 2 },
+        });
+        expect(clientResponse.object).toBe("chat.completion");
+        expect(clientResponse.choices[0].message.content).toBe("Hi");
     });
 });
