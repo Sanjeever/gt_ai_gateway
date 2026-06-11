@@ -78,6 +78,21 @@
                     </a-descriptions>
                 </a-card>
 
+                <!-- 对话可视化 -->
+                <div v-if="conversationMessages.length > 0">
+                    <a-card title="可视化查看" class="detail-card">
+                        <div class="visualization-container">
+                            <iframe 
+                                ref="viewerIframe" 
+                                src="/data_viewer/dist/index.html" 
+                                @load="onIframeLoad" 
+                                frameborder="0"
+                                class="visualization-iframe"
+                            ></iframe>
+                        </div>
+                    </a-card>
+                </div>
+
                 <!-- 请求数据 -->
                 <a-card title="请求数据" class="detail-card">
                     <template #extra>
@@ -130,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, watch } from 'vue';
+import { computed, onUnmounted, watch, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { DownloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue';
 import { useRecordStore } from '@/stores/record';
@@ -141,6 +156,51 @@ import { message } from 'ant-design-vue/es';
 const router = useRouter();
 const route = useRoute();
 const recordStore = useRecordStore();
+
+const viewerIframe = ref<HTMLIFrameElement | null>(null);
+
+const conversationMessages = computed(() => {
+    const msgs: any[] = [];
+    try {
+        if (recordStore.currentRecord?.request_data) {
+            const req = JSON.parse(recordStore.currentRecord.request_data);
+            if (req.messages && Array.isArray(req.messages)) {
+                msgs.push(...req.messages);
+            }
+        }
+    } catch(e) {}
+    try {
+        if (recordStore.currentRecord?.response_data) {
+            const res = JSON.parse(recordStore.currentRecord.response_data);
+            if (res.choices && res.choices.length > 0 && res.choices[0].message) {
+                msgs.push(res.choices[0].message);
+            } else if (res.message) {
+                msgs.push(res.message);
+            }
+        }
+    } catch(e) {}
+    return msgs;
+});
+
+function onIframeLoad() {
+    if (viewerIframe.value && viewerIframe.value.contentWindow) {
+        setTimeout(() => {
+            const bridge = (viewerIframe.value!.contentWindow as any).gt_bridge;
+            if (bridge && typeof bridge.setLlmData === 'function') {
+                bridge.setLlmData(JSON.parse(JSON.stringify(conversationMessages.value)));
+            }
+        }, 300);
+    }
+}
+
+watch(conversationMessages, (newVal) => {
+    if (newVal.length > 0 && viewerIframe.value && viewerIframe.value.contentWindow) {
+        const bridge = (viewerIframe.value.contentWindow as any).gt_bridge;
+        if (bridge && typeof bridge.setLlmData === 'function') {
+            bridge.setLlmData(JSON.parse(JSON.stringify(newVal)));
+        }
+    }
+}, { deep: true });
 
 const currentRecordId = computed<number>(() => {
     const id = Number.parseInt(route.params.id as string, 10);
@@ -306,5 +366,17 @@ function downloadJson(data: string | null, type: 'request' | 'response') {
     margin: 0 4px;
     color: #8c8c8c;
     font-size: 12px;
+}
+
+.visualization-container {
+    height: 500px;
+    width: 100%;
+}
+
+.visualization-iframe {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border-color, #f0f0f0);
+    border-radius: 8px;
 }
 </style>
