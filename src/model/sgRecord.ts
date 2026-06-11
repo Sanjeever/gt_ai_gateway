@@ -19,6 +19,8 @@ class SgRecord extends Model {
     response_data!: string | null;
     status!: SgRecordStatus | null;
     failed_code!: string | null;
+    client_format!: string | null;
+    upstream_format!: string | null;
 
     prompt_tokens!: number | null;
     output_tokens!: number | null;

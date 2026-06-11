@@ -10,6 +10,8 @@ export interface Record extends BaseEntity {
     response_data: string | null;
     status: RequestStatus | null;
     failed_code: FailedCode;
+    client_format: string | null;
+    upstream_format: string | null;
     prompt_tokens: number | null;
     output_tokens: number | null;
     first_token_latency: number | null;

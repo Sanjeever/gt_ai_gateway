@@ -8,6 +8,8 @@ export interface VendorTestResponse {
     status?: number;
     duration?: number;
     url?: string;
+    converted_from?: string;
+    converted_to?: string;
     response?: unknown;
     error?: unknown;
 }
@@ -69,6 +71,7 @@ export async function testVendor(
     id: number,
     format: string = 'openai',
     model?: string,
+    autoConvert: boolean = false,
 ): Promise<VendorTestResponse> {
-    return request.post(`/vendor/${id}/test.json`, { format, model });
+    return request.post(`/vendor/${id}/test.json`, { format, model, auto_convert: autoConvert });
 }

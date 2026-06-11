@@ -9,6 +9,8 @@ async function create(
     userId: number,
     modelId: number,
     requestData: string | null,
+    clientFormat: string | null = null,
+    upstreamFormat: string | null = null,
 ) {
     if (isLogEnabled()) {
         console.log(`[RecordService] Creating record: user=${userId}, model=${modelId}`);
@@ -23,6 +25,8 @@ async function create(
         request_data: requestData,
         response_data: null,
         status: SgRecordStatus.INIT,
+        client_format: clientFormat,
+        upstream_format: upstreamFormat !== clientFormat ? upstreamFormat : null,
         prompt_tokens: null,
         output_tokens: null,
         first_token_latency: null,

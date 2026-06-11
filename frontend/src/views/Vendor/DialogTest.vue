@@ -26,7 +26,7 @@
                         </div>
                     </template>
 
-                    <a-form-item label="测试格式">
+                    <a-form-item :label="modelInfo ? '客户端请求协议' : '向服务端请求协议'">
                         <a-radio-group v-model:value="format">
                             <a-radio-button value="openai">OpenAI</a-radio-button>
                             <a-radio-button value="anthropic">Anthropic</a-radio-button>
@@ -56,10 +56,25 @@
                         </a-form-item>
                     </template>
 
+                    <div v-if="modelInfo && (canAutoConvert || !hasDirectUrl)" class="auto-convert-row">
+                        <a-checkbox
+                            v-model:checked="useAutoConvert"
+                            :disabled="!canAutoConvert"
+                        >
+                            自动转换
+                            <span v-if="canAutoConvert" class="convert-hint">
+                                ({{ format.toUpperCase() }} → {{ autoConvertTo!.toUpperCase() }})
+                            </span>
+                        </a-checkbox>
+                        <span v-if="!hasDirectUrl && !canAutoConvert" class="no-url-hint">
+                            该供应商未配置 {{ format.toUpperCase() }} URL，且无可用转换格式
+                        </span>
+                    </div>
+
                     <a-button
                         type="primary"
                         :loading="loading"
-                        :disabled="!testModel"
+                        :disabled="testButtonDisabled"
                         @click="handleTest"
                         block
                     >
@@ -84,6 +99,10 @@
                                 耗时: {{ result.duration }}ms
                             </span>
                         </a-space>
+                        <div v-if="result.converted_from && result.converted_to" class="result-convert">
+                            <span class="convert-label">协议转换:</span>
+                            <code class="convert-text">{{ result.converted_from.toUpperCase() }} → {{ result.converted_to.toUpperCase() }}</code>
+                        </div>
                         <div v-if="result.url" class="result-url">
                             <span class="url-label">实际 URL:</span>
                             <code class="url-text">{{ result.url }}</code>
@@ -101,16 +120,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { testVendor, listVendorModels } from '@/api/vendor';
 import type { VendorTestResponse } from '@/api/vendor';
 import type { Vendor, VendorModel } from '@/types/vendor';
 import { notifyRequestError, notifySuccess, notifyWarning } from '@/utils/requestFeedback';
+import { useVendorPresets } from '@/composables/useVendorPresets';
 
 interface ModelInfo {
     modelName: string;
     vendorModelName: string | null;
 }
+
+const { presetUrls, load: loadPresets } = useVendorPresets();
 
 const visible = ref(false);
 const loading = ref(false);
@@ -118,6 +140,34 @@ const format = ref('openai');
 const result = ref<VendorTestResponse | null>(null);
 const currentVendor = ref<Vendor | null>(null);
 const modelInfo = ref<ModelInfo | null>(null);
+const useAutoConvert = ref(false);
+
+const mergedUrls = computed(() => {
+    if (!currentVendor.value) return {};
+    const preset = presetUrls.value[currentVendor.value.type] ?? {};
+    const merged = { ...preset, ...currentVendor.value.urls };
+    delete merged['label'];
+    return merged;
+});
+
+const hasDirectUrl = computed(() => !!mergedUrls.value[format.value]);
+
+const autoConvertTo = computed(() => {
+    if (hasDirectUrl.value) return null;
+    const formats = ['openai', 'anthropic'];
+    return formats.find(f => f !== format.value && !!mergedUrls.value[f]) ?? null;
+});
+
+const canAutoConvert = computed(() => !!autoConvertTo.value);
+
+const testButtonDisabled = computed(() => {
+    if (!testModel.value) return true;
+    if (!hasDirectUrl.value) {
+        // 供应商模式：直接禁用；模型模式：可以靠自动转换解锁
+        return !modelInfo.value || !useAutoConvert.value;
+    }
+    return false;
+});
 
 const testModel = ref<string>('');
 const vendorModels = ref<VendorModel[]>([]);
@@ -164,12 +214,15 @@ function open(vendor: Vendor, defaultModel?: string, info?: ModelInfo) {
     result.value = null;
     testModel.value = defaultModel ?? '';
     searchValue.value = '';
+    useAutoConvert.value = false;
 
     if (vendor.type === 'anthropic') {
         format.value = 'anthropic';
     } else {
         format.value = 'openai';
     }
+
+    void loadPresets();
 
     // Only load the model list in vendor mode
     if (!info) {
@@ -191,6 +244,11 @@ async function loadVendorModels(vendorId: number, defaultModel?: string) {
     }
 }
 
+watch(format, () => {
+    useAutoConvert.value = false;
+    result.value = null;
+});
+
 function handleSearch(val: string) {
     searchValue.value = val;
 }
@@ -201,7 +259,7 @@ async function handleTest() {
     loading.value = true;
     result.value = null;
     try {
-        const res = await testVendor(currentVendor.value.id, format.value, testModel.value);
+        const res = await testVendor(currentVendor.value.id, format.value, testModel.value, useAutoConvert.value);
         result.value = res;
         if (res.success) {
             notifySuccess('测试完成，连接正常');
@@ -296,6 +354,42 @@ defineExpose({ open });
     color: #8c8c8c;
     font-size: 13px;
     margin-left: 8px;
+}
+
+.auto-convert-row {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.convert-hint {
+    color: #8c8c8c;
+    font-size: 12px;
+}
+
+.no-url-hint {
+    color: #ff4d4f;
+    font-size: 12px;
+}
+
+.result-convert {
+    margin-top: 8px;
+    font-size: 12px;
+    background: #f0f2f5;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.convert-label {
+    color: #8c8c8c;
+    margin-right: 8px;
+    font-weight: 500;
+}
+
+.convert-text {
+    color: #1677ff;
+    font-family: monospace;
 }
 
 .result-url {

@@ -489,7 +489,7 @@ async function sendRequest(
     }
 
     // 1. 创建数据库记录
-    const record = await recordService.create(user.id, modelConfig.id, body);
+    const record = await recordService.create(user.id, modelConfig.id, body, format, upstreamFormat);
     await recordService.update(record.id, {
         status: SgRecordStatus.PROCESSING,
         start_at: new Date(),

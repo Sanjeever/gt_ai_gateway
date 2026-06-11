@@ -182,13 +182,26 @@ async function testVendor(c: Context) {
     }
 
     const bodyJson = await c.req.json().catch(() => ({}));
-    const { format = ApiFormat.OPENAI, model = "test-ping" } = bodyJson;
-    
-    const url = vendor.getUrlByFormat(format);
+    const { format = ApiFormat.OPENAI, model = "test-ping", auto_convert = false } = bodyJson;
+
+    let requestFormat: ApiFormat = format;
+    let convertedFrom: string | undefined;
+    let convertedTo: string | undefined;
+
+    if (auto_convert) {
+        const upstreamFormat = vendor.getUpstreamFormat(format);
+        if (upstreamFormat !== format) {
+            convertedFrom = format;
+            convertedTo = upstreamFormat;
+            requestFormat = upstreamFormat;
+        }
+    }
+
+    const url = vendor.getUrlByFormat(requestFormat);
     const headers = new Headers();
     let upstreamBody = "";
 
-    if (format === ApiFormat.ANTHROPIC) {
+    if (requestFormat === ApiFormat.ANTHROPIC) {
         headers.set("x-api-key", vendor.token);
         headers.set("anthropic-version", "2023-06-01");
         headers.set("Content-Type", "application/json");
@@ -198,7 +211,6 @@ async function testVendor(c: Context) {
             max_tokens: 1,
         });
     } else {
-        // OpenAI format
         headers.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
         headers.set("Content-Type", "application/json");
         upstreamBody = JSON.stringify({
@@ -230,6 +242,8 @@ async function testVendor(c: Context) {
             status: response.status,
             duration,
             url,
+            converted_from: convertedFrom,
+            converted_to: convertedTo,
             response: responseData,
         });
     } catch (error: any) {

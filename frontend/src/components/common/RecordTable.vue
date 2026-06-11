@@ -41,6 +41,16 @@
             <template v-if="column.key === 'created_at'">
                 {{ formatDate(record.created_at) }}
             </template>
+            <template v-else-if="column.key === 'protocol'">
+                <span v-if="record.client_format">
+                    <a-tag>{{ record.client_format.toUpperCase() }}</a-tag>
+                    <template v-if="record.upstream_format">
+                        <span class="protocol-arrow">→</span>
+                        <a-tag color="orange">{{ record.upstream_format.toUpperCase() }}</a-tag>
+                    </template>
+                </span>
+                <span v-else>-</span>
+            </template>
             <template v-if="column.key === 'action'">
                 <a-button type="link" size="small" @click="handleView(record)">
                     查看
@@ -84,6 +94,7 @@ const defaultColumns: TableColumnsType<Record> = [
     { title: '用户', key: 'user_name', dataIndex: 'user_name' },
     { title: '供应商', key: 'vendor_name', dataIndex: 'vendor_name' },
     { title: '模型', key: 'model_name', dataIndex: 'model_name' },
+    { title: '协议', key: 'protocol', width: 160 },
     { title: 'Token', key: 'token_stats', width: 140 },
     { title: '时间', key: 'timing', width: 140 },
     { title: '状态', key: 'status', dataIndex: 'status', width: 140 },
@@ -204,5 +215,11 @@ function getStatusText(status: string | null, failedCode?: string | null): strin
 .metric-sub {
     font-size: 12px;
     color: #8c8c8c;
+}
+
+.protocol-arrow {
+    margin: 0 4px;
+    color: #8c8c8c;
+    font-size: 12px;
 }
 </style>
