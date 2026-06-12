@@ -282,7 +282,7 @@ pub fn run() {
                         let _ = open::that(dir);
                     }
                     "quit" => {
-                        app.exit(0);
+                        std::process::exit(0);
                     }
                     _ => {}
                 })
