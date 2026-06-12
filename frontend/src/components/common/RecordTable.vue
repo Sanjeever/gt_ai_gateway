@@ -7,6 +7,7 @@
         :size="size"
         @change="handleTableChange"
         :row-key="(record: Record) => record.id"
+        :scroll="{ x: 'max-content' }"
     >
         <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
@@ -90,15 +91,15 @@ const emit = defineEmits<{
 const router = useRouter();
 
 const defaultColumns: TableColumnsType<Record> = [
-    { title: 'ID', key: 'id', dataIndex: 'id', width: 80 },
+    { title: 'ID', key: 'id', dataIndex: 'id' },
     { title: '用户', key: 'user_name', dataIndex: 'user_name' },
     { title: '供应商', key: 'vendor_name', dataIndex: 'vendor_name' },
     { title: '模型', key: 'model_name', dataIndex: 'model_name' },
-    { title: '协议', key: 'protocol', width: 160 },
-    { title: 'Token', key: 'token_stats', width: 140 },
-    { title: '时间', key: 'timing', width: 140 },
-    { title: '状态', key: 'status', dataIndex: 'status', width: 140 },
-    { title: '创建时间', key: 'created_at', dataIndex: 'created_at', width: 180 },
+    { title: '协议', key: 'protocol' },
+    { title: 'Token', key: 'token_stats' },
+    { title: '时间', key: 'timing' },
+    { title: '状态', key: 'status', dataIndex: 'status' },
+    { title: '创建时间', key: 'created_at', dataIndex: 'created_at' },
     { title: '操作', key: 'action', width: 80, fixed: 'right' as const },
 ];
 
