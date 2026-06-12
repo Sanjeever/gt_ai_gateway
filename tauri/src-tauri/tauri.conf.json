@@ -1,6 +1,6 @@
 {
     "productName": "GT AI Gateway",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "identifier": "com.gtgroup.aigateway",
     "build": {
         "frontendDist": "../../frontend/dist",
