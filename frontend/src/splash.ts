@@ -78,6 +78,12 @@ async function initSplash() {
         localStorage.setItem('adminToken', token);
         localStorage.setItem('backendBaseURL', url);
 
+        // 如果配置了环境变量 VITE_SPLASH_DELAY_SEC，则人为增加对应秒数的延迟
+        const delaySec = Number(import.meta.env.VITE_SPLASH_DELAY_SEC) || 0;
+        if (delaySec > 0) {
+            await new Promise(r => setTimeout(r, delaySec * 1000));
+        }
+
         // Tell Rust to open the main window and close this splash screen
         await invoke('open_main_window');
 
