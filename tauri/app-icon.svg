@@ -1,4 +1,6 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 隐形背景，强制占用完整的 512x512 画布，防止打包工具自动裁切透明边缘 -->
+  <rect width="512" height="512" fill="rgba(255, 255, 255, 0.01)" />
   <g transform="translate(51.2, 51.2) scale(0.8)">
     <!-- 背景：深海军蓝（科技感圆角矩形，更偏向深蓝色） -->
     <rect width="512" height="512" rx="115" fill="#1e3a8a" />
