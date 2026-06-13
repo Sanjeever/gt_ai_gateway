@@ -1,6 +1,7 @@
 name: Tauri Build
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
