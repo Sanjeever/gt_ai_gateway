@@ -18,18 +18,32 @@ Serverless AI Gateway 的核心特性之一是**透明且自动的协议转换**
 
 ## 什么时候会自动发生转换？
 
-转换过程是**全自动、实时发生**的，基于你在请求时所使用的 **请求端点（Endpoint）** 和 **后台配置的供应商类型（Vendor Type）** 之间的差异触发。
+转换过程是**全自动、实时发生**的，基于你在请求时所使用的 **请求端点（Endpoint）** 和 **后台模型实际支持的协议** 之间的差异触发。
 
 ### 触发条件矩阵：
 
-| 客户端请求的端点 | 后台模型对应的供应商类型 | 网关的行为 | 结果 |
+| 客户端请求的端点 | 后台模型实际支持的协议 | 网关的行为 | 结果 |
 | :--- | :--- | :--- | :--- |
-| `/llm/v1/chat/completions` (OpenAI 格式) | **OpenAI** 类型 | 透传 (Pass-through) | 不做转换，直接代理请求。 |
-| `/llm/v1/chat/completions` (OpenAI 格式) | **Anthropic** 类型 | **触发转换** | 将请求转为 Anthropic 格式，响应转为 OpenAI 格式。 |
-| `/llm/v1/messages` (Anthropic 格式) | **Anthropic** 类型 | 透传 (Pass-through) | 不做转换，直接代理请求。 |
-| `/llm/v1/messages` (Anthropic 格式) | **OpenAI** 类型 | **触发转换** | 将请求转为 OpenAI 格式，响应转为 Anthropic 格式。 |
+| `/llm/v1/chat/completions` (OpenAI 格式) | **OpenAI** 协议 | 透传 (Pass-through) | 不做转换，直接代理请求。 |
+| `/llm/v1/chat/completions` (OpenAI 格式) | **Anthropic** 协议 | **触发转换** | 将请求转为 Anthropic 格式，响应转为 OpenAI 格式。 |
+| `/llm/v1/messages` (Anthropic 格式) | **Anthropic** 协议 | 透传 (Pass-through) | 不做转换，直接代理请求。 |
+| `/llm/v1/messages` (Anthropic 格式) | **OpenAI** 协议 | **触发转换** | 将请求转为 OpenAI 格式，响应转为 Anthropic 格式。 |
 
 简单来说：**只要客户端使用的协议，与实际提供模型的供应商协议不一致，就会自动触发双向转换。**
+
+---
+
+## 如何判断后台模型实际支持哪些协议？
+
+网关在判断一个模型“实际支持什么协议”时，会按照以下优先级进行判断：
+
+1. **优先级一：供应商模型中显式配置的协议（强制指定）**
+   在管理后台的“供应商模型”设置中，你可以为某个特定模型显式指定其支持的协议（如 `OpenAI` 或 `Anthropic`）。如果配置了此项，网关将**优先且无条件地**认为该模型支持你设定的协议。
+2. **优先级二：供应商配置中存在的协议 URL（默认行为）**
+   如果在“供应商模型”中没有单独指定协议，网关会**自动根据其归属供应商所填写的 API URL** 来进行判断。
+   - 如果该供应商配置了 `OpenAI API URL`，则认为该供应商下的所有模型默认支持 OpenAI 协议。
+   - 如果该供应商配置了 `Anthropic API URL`，则认为默认支持 Anthropic 协议。
+   - 如果同时填写了两者，则说明该供应商原生支持双协议。在原生支持双协议的情况下，如果客户端发来的请求刚好是其中一种，网关就会直接透传，从而避免不必要的转换开销。
 
 ---
 
@@ -42,7 +56,7 @@ Serverless AI Gateway 的核心特性之一是**透明且自动的协议转换**
 ### 示例场景：使用 OpenAI 官方 SDK 调用 Claude 3
 
 假设你在网关后台配置了：
-- **供应商**：类型为 `Anthropic`
+- **供应商**：支持并配置了 Anthropic 协议
 - **模型**：名称为 `claude-3-opus-20240229`，绑定到上述供应商
 
 你在客户端代码中，**完全可以使用 OpenAI 的官方 SDK**：
@@ -69,11 +83,23 @@ for chunk in response:
 
 ### 背后的魔法：
 1. **客户端**发出了标准的 OpenAI `chat/completions` 请求。
-2. **网关**接管请求，发现模型 `claude-3-opus-20240229` 属于 Anthropic 供应商。
+2. **网关**接管请求，发现模型 `claude-3-opus-20240229` 绑定的供应商实际支持的是 Anthropic 协议。
 3. **网关**将请求体的 `messages`、`model`、`stream` 等字段无缝映射为 Anthropic `/v1/messages` 接口规范，并附带真正的 Anthropic API Key 发送给上游。
 4. **上游 (Anthropic)** 开始源源不断地返回 SSE 事件流（如 `message_start`, `content_block_delta` 等）。
 5. **网关**实时拦截这些 Anthropic 事件，将它们翻译为标准的 OpenAI SSE `chunk`（如 `chunk.choices[0].delta.content`）。
 6. **客户端**完美接收到流式输出，完全不知道背后实际调用的是 Anthropic。
+
+### 示例场景二：高级用法（强制协议转换）
+
+在某些特殊场景下，供应商的某个模型可能只支持特定的协议（例如：该供应商的大部分模型同时支持 OpenAI 和 Anthropic 双协议，但是某一个特定的模型只支持 OpenAI 协议）。
+
+此时，你可以利用上述的**“优先级一”**，在后台的**添加/编辑供应商模型**弹窗中，**手动设置该模型所支持的协议类型**为 `OpenAI`。
+
+一旦这样设置：
+- 即使你的客户端使用的是标准的 Anthropic `messages` SDK 发起请求，网关在对比时，会发现客户端请求(Anthropic)与供应商模型强制指定的协议(OpenAI)不一致。
+- 网关会立即**强制触发协议转换**，把你的 Anthropic 请求转成 OpenAI 格式发送给第三方渠道！
+
+这赋予了你在对接各种协议不规范的第三方渠道时，极大的灵活性与掌控力。
 
 ---
 
