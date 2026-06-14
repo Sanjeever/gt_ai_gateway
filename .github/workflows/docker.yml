@@ -32,6 +32,9 @@ jobs:
                 submodules: recursive
                 token: ${{ secrets.PAT_TOKEN }}
 
+            - name: Verify Version Consistency
+              run: bash script/verify_versions.sh
+
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
 

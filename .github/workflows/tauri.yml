@@ -21,6 +21,9 @@ jobs:
           submodules: recursive
           token: ${{ secrets.PAT_TOKEN }}
 
+      - name: Verify Version Consistency
+        run: bash script/verify_versions.sh
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
