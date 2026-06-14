@@ -91,12 +91,12 @@ docker exec -it gt_ai_gateway npm run db:migrate:node
 
 ---
 
-## 使用 Docker Hub
+## 使用 GitHub 镜像 (推荐)
 
 ### 拉取镜像
 
 ```bash
-docker pull alexazhou/gt_ai_gateway:latest
+docker pull ghcr.io/alexazhou/gt_ai_gateway:latest
 ```
 
 ### 运行容器
@@ -107,7 +107,7 @@ docker run -d \
     -p 8787:8787 \
     -v $(pwd)/data:/app/data \
     -e ROOT_TOKEN=your-secret-root-token \
-    alexazhou/gt_ai_gateway:latest
+    ghcr.io/alexazhou/gt_ai_gateway:latest
 ```
 
 ---

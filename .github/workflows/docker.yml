@@ -41,11 +41,20 @@ jobs:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
             - name: Extract metadata for Docker
               id: meta
               uses: docker/metadata-action@v6
               with:
-                  images: alexazhou/gt_ai_gateway
+                  images: |
+                      alexazhou/gt_ai_gateway
+                      ghcr.io/${{ github.repository }}
                   flavor: |
                       latest=false
                       suffix=-${{ matrix.suffix }}
@@ -85,6 +94,13 @@ jobs:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v4
 
@@ -92,7 +108,9 @@ jobs:
               id: meta
               uses: docker/metadata-action@v6
               with:
-                  images: alexazhou/gt_ai_gateway
+                  images: |
+                      alexazhou/gt_ai_gateway
+                      ghcr.io/${{ github.repository }}
                   tags: |
                       type=semver,pattern={{version}}
                       type=semver,pattern={{major}}.{{minor}}
@@ -126,6 +144,10 @@ jobs:
                   token="${{ secrets.DOCKERHUB_TOKEN }}"
 
                   for tag in $tags; do
+                      if [[ "$tag" == *"ghcr.io"* ]]; then
+                          continue
+                      fi
+
                       # Delete amd64 suffix tag
                       curl -s -X DELETE \
                           -H "Authorization: Basic $(echo -n "$username:$token" | base64)" \
