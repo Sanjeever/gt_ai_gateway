@@ -12,6 +12,7 @@ import config from "../../config";
  */
 
 let testUserToken: string;
+let disabledUserToken: string;
 let openaiVendorId: number;
 let anthropicVendorId: number;
 let openaiModelName: string;
@@ -31,6 +32,19 @@ describe("AI Chat API (Negative)", () => {
             adminToken,
         );
         testUserToken = userResponse.body.token;
+
+        // Create disabled test user
+        const disabledUserResponse = await requestHelper.post(
+            "/user/create.json",
+            mockHelper.generateUser(),
+            adminToken,
+        );
+        disabledUserToken = disabledUserResponse.body.token;
+        await requestHelper.put(
+            `/user/${disabledUserResponse.body.id}`,
+            { status: "disabled" },
+            adminToken
+        );
 
         // Create OpenAI vendor
         const openaiVendor = await requestHelper.post(
@@ -104,6 +118,22 @@ describe("AI Chat API (Negative)", () => {
             expect(response.body.error).toContain("user not found");
         }, 30000);
 
+        it("should return 403 when user is disabled", async () => {
+            const chatRequest = mockHelper.generateOpenAIChatRequest({
+                model: openaiModelName,
+            });
+
+            const response = await requestHelper.post(
+                "/llm/v1/chat/completions",
+                chatRequest,
+                disabledUserToken,
+            );
+
+            expect(response.status).toBe(403);
+            expect(response.body).toHaveProperty("error");
+            expect(response.body.error).toContain("User disabled");
+        }, 30000);
+
         it("should return 401 when model does not exist", async () => {
             const chatRequest = mockHelper.generateOpenAIChatRequest({
                 model: "non-existent-model",
@@ -152,6 +182,22 @@ describe("AI Chat API (Negative)", () => {
             expect(response.status).toBe(401);
             expect(response.body).toHaveProperty("error");
             expect(response.body.error).toContain("user not found");
+        }, 30000);
+
+        it("should return 403 when user is disabled", async () => {
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
+                model: anthropicModelName,
+            });
+
+            const response = await requestHelper.postWithAnthropicStyleApiKey(
+                "/llm/v1/messages",
+                messageRequest,
+                disabledUserToken,
+            );
+
+            expect(response.status).toBe(403);
+            expect(response.body).toHaveProperty("error");
+            expect(response.body.error).toContain("User disabled");
         }, 30000);
 
         it("should return 401 when model does not exist", async () => {
