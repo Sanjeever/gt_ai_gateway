@@ -9,7 +9,6 @@ describe("Config API", () => {
 
         expect(response.body).toBeDefined();
         expect(response.body.cch_rewrite_enabled).toBe(false);
-        expect(response.body.telemetry_enabled).toBe(true);
     });
 
     it("should update config values and return updated config", async () => {
@@ -17,19 +16,16 @@ describe("Config API", () => {
             "/config.json",
             { 
                 cch_rewrite_enabled: true,
-                telemetry_enabled: false
             },
             ROOT_TOKEN,
         );
 
         expect(updateResponse.status).toBe(200);
         expect(updateResponse.body.cch_rewrite_enabled).toBe(true);
-        expect(updateResponse.body.telemetry_enabled).toBe(false);
 
         // Verify it persists by getting it again
         const getResponse = await requestHelper.get("/config.json", ROOT_TOKEN);
         expect(getResponse.status).toBe(200);
         expect(getResponse.body.cch_rewrite_enabled).toBe(true);
-        expect(getResponse.body.telemetry_enabled).toBe(false);
     });
 });

@@ -205,6 +205,18 @@ function startTestServer(): Promise<void> {
                     `[${new Date().toISOString()}] [SERVER STDOUT] ${output}\n`,
                 );
             }
+
+            if (
+                output.toLowerCase().includes("eaddrinuse") ||
+                output.toLowerCase().includes("address already in use") ||
+                output.toLowerCase().includes("would you like to use port") ||
+                output.toLowerCase().includes("is in use")
+            ) {
+                cleanup();
+                reject(new Error(`Test server port ${port} is already in use. Server output: ${output}`));
+                return;
+            }
+
             // 监听服务器启动成功的消息
             if (!serverStarted) {
                 if (isWorkerMode) {
@@ -228,48 +240,60 @@ function startTestServer(): Promise<void> {
             }
         });
 
-        testServerProcess.stderr?.on("data", (data) => {
-            const error = data.toString().trim();
-            // Write all stderr to app.log
-            if (appLogStream) {
-                appLogStream.write(
-                    `[${new Date().toISOString()}] [SERVER STDERR] ${error}\n`,
-                );
-            }
+            testServerProcess.stderr?.on("data", (data) => {
+                const error = data.toString().trim();
+                // Write all stderr to app.log
+                if (appLogStream) {
+                    appLogStream.write(
+                        `[${new Date().toISOString()}] [SERVER STDERR] ${error}\n`,
+                    );
+                }
 
-            if (isWorkerMode) {
-                // After server is started, don't treat stderr as fatal
-                if (serverStarted) {
+                if (
+                    error.toLowerCase().includes("eaddrinuse") ||
+                    error.toLowerCase().includes("address already in use")
+                ) {
+                    cleanup();
+                    reject(new Error(`Test server port ${port} is already in use.`));
+                    return;
+                }
+
+                if (isWorkerMode) {
+                    // After server is started, don't treat stderr as fatal
+                    if (serverStarted) {
+                        if (config.TEST_OPTIONS.verbose) {
+                            console.log("[SERVER STDERR]", error);
+                        }
+                        return;
+                    }
+                    // Before server is started, check for startup signal in stderr
                     if (config.TEST_OPTIONS.verbose) {
-                        console.log("[SERVER STDERR]", error);
+                        console.log("[SERVER INFO]", error);
+                    }
+                    if (
+                        error.includes("Ready") ||
+                        error.includes("localhost:" + port)
+                    ) {
+                        serverStarted = true;
+                        cleanup();
+                        resolve();
                     }
                     return;
                 }
-                // Before server is started, check for startup signal in stderr
-                if (config.TEST_OPTIONS.verbose) {
-                    console.log("[SERVER INFO]", error);
-                }
-                if (
-                    error.includes("Ready") ||
-                    error.includes("localhost:" + port)
-                ) {
-                    serverStarted = true;
-                    cleanup();
-                    resolve();
-                }
-                return;
-            }
-            console.error("[SERVER ERROR]", error);
-        });
+                console.error("[SERVER ERROR]", error);
+            });
 
         testServerProcess.on("error", (err) => {
             cleanup();
             reject(err);
         });
 
-        testServerProcess.on("exit", () => {
+        testServerProcess.on("exit", (code) => {
             cleanup();
             testServerProcess = null;
+            if (!serverStarted) {
+                reject(new Error(`Test server exited prematurely with code ${code}`));
+            }
         });
 
         // 设置超时

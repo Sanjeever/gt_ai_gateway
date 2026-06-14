@@ -1,7 +1,6 @@
 import { SgConfig } from "../model/sgConfig";
 
 const CCH_REWRITE_ENABLED = "cch_rewrite_enabled";
-const TELEMETRY_ENABLED = "telemetry_enabled";
 type ConfigMap = Record<string, string | boolean | number | null>;
 
 function parseValue(value: string): string | boolean | number | null {
@@ -54,9 +53,6 @@ async function getAll(): Promise<ConfigMap> {
     if (result[CCH_REWRITE_ENABLED] === undefined) {
         result[CCH_REWRITE_ENABLED] = false;
     }
-    if (result[TELEMETRY_ENABLED] === undefined) {
-        result[TELEMETRY_ENABLED] = true;
-    }
 
     return result;
 }
@@ -73,10 +69,6 @@ async function isCchRewriteEnabled(): Promise<boolean> {
     return await getBoolean(CCH_REWRITE_ENABLED, false);
 }
 
-async function isTelemetryEnabled(): Promise<boolean> {
-    return await getBoolean(TELEMETRY_ENABLED, true);
-}
-
 export default {
     getValue,
     setValue,
@@ -85,5 +77,4 @@ export default {
     getAll,
     updateAll,
     isCchRewriteEnabled,
-    isTelemetryEnabled,
 };
