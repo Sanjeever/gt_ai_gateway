@@ -21,7 +21,7 @@
                     placeholder="留空则自动生成"
                 />
             </a-form-item>
-            <a-form-item label="类型" name="type">
+            <a-form-item label="类型" name="type" tooltip="管理员才能登录后台，不会余额不足；普通用户只能通过 API 调用 LLM">
                 <a-select v-model:value="formState.type" placeholder="请选择用户类型">
                     <a-select-option value="normal">普通用户</a-select-option>
                     <a-select-option value="admin">管理员</a-select-option>
