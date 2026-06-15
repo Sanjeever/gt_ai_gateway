@@ -115,6 +115,12 @@ async function handleStreamResponse(
         let streamCompleted = false;
         let failedCode: string | null = null;
 
+        const abortHandler = () => {
+            if (!failedCode) failedCode = FailedCode.CLIENT_DISCONNECTED;
+            reader.cancel().catch(() => {});
+        };
+        c.req.raw.signal.addEventListener("abort", abortHandler);
+
         try {
             // 逐块读取上游 SSE 字节流
             while (true) {
@@ -198,6 +204,8 @@ async function handleStreamResponse(
                 failedCode = FailedCode.UPSTREAM_DISCONNECTED;
             }
         }
+
+        c.req.raw.signal.removeEventListener("abort", abortHandler);
 
         console.log(`[senderService] Stream ended, events: ${eventCount}, completed: ${streamCompleted}, failedCode: ${failedCode}`);
 
@@ -352,6 +360,12 @@ async function handleResponsesStreamResponse(
         let streamCompleted = false;
         let failedCode: string | null = null;
 
+        const abortHandler = () => {
+            if (!failedCode) failedCode = FailedCode.CLIENT_DISCONNECTED;
+            reader.cancel().catch(() => {});
+        };
+        c.req.raw.signal.addEventListener("abort", abortHandler);
+
         try {
             while (true) {
                 let done: boolean;
@@ -477,6 +491,8 @@ async function handleResponsesStreamResponse(
                 failedCode = FailedCode.UPSTREAM_DISCONNECTED;
             }
         }
+
+        c.req.raw.signal.removeEventListener("abort", abortHandler);
 
         if (!streamCompleted) {
             await recordService.update(record.id, {

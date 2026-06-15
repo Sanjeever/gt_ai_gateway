@@ -158,14 +158,20 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
         handleOpenAIStreamIncomplete(req, res);
     } else if (url.includes("/chat/completions/disconnect")) {
         handleOpenAIStreamDisconnect(req, res);
+    } else if (url.includes("/chat/completions/slow")) {
+        handleOpenAIStreamSlow(req, res);
     } else if (url.includes("/chat/completions")) {
         handleOpenAIChat(req, res);
     } else if (url.includes("/responses/incomplete")) {
         handleResponsesStreamIncomplete(req, res);
+    } else if (url.includes("/responses/slow")) {
+        handleResponsesStreamSlow(req, res);
     } else if (url.includes("/responses")) {
         handleOpenAIResponses(req, res);
     } else if (url.includes("/messages/incomplete")) {
         handleAnthropicStreamIncomplete(req, res);
+    } else if (url.includes("/messages/slow")) {
+        handleAnthropicStreamSlow(req, res);
     } else if (url.includes("/messages")) {
         handleAnthropicMessages(req, res);
     } else if (req.method === "GET" && url.includes("/models")) {
@@ -1079,6 +1085,113 @@ function handleResponsesStreamIncomplete(req: IncomingMessage, res: ServerRespon
             // Close without response.completed
             res.end();
         }, 50);
+    });
+}
+
+
+/**
+ * OpenAI stream that sends 2 chunks then hangs (simulates client_disconnected when client aborts)
+ */
+function handleOpenAIStreamSlow(req: IncomingMessage, res: ServerResponse): void {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk.toString(); });
+    req.on("end", () => {
+        const data = body ? JSON.parse(body) : {};
+
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+        });
+
+        const partialChunks = [
+            { role: "assistant", content: "Hello" },
+            { content: "..." },
+        ];
+        for (const delta of partialChunks) {
+            const event = {
+                id: `chatcmpl-${Date.now()}`,
+                object: "chat.completion.chunk",
+                created: Math.floor(Date.now() / 1000),
+                model: data.model || "gpt-3.5-turbo",
+                choices: [{ index: 0, delta, finish_reason: null }],
+            };
+            res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+        // Hang indefinitely — never send [DONE] or close
+    });
+}
+
+
+/**
+ * Anthropic stream that sends message_start + 1 delta then hangs
+ */
+function handleAnthropicStreamSlow(req: IncomingMessage, res: ServerResponse): void {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk.toString(); });
+    req.on("end", () => {
+        const data = body ? JSON.parse(body) : {};
+
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+        });
+
+        const startEvent = {
+            type: "message_start",
+            message: {
+                id: `msg_${Date.now()}`,
+                type: "message",
+                role: "assistant",
+                content: [],
+                model: data.model || "claude-3-haiku-20240307",
+                stop_reason: null,
+                usage: { input_tokens: 8, output_tokens: 0 },
+            },
+        };
+        res.write(`event: message_start\ndata: ${JSON.stringify(startEvent)}\n\n`);
+
+        const deltaEvent = {
+            type: "content_block_delta",
+            index: 0,
+            delta: { type: "text_delta", text: "Hello" },
+        };
+        res.write(`event: content_block_delta\ndata: ${JSON.stringify(deltaEvent)}\n\n`);
+        // Hang indefinitely — never send message_stop
+    });
+}
+
+
+/**
+ * Responses API stream that sends response.created + 1 delta then hangs
+ */
+function handleResponsesStreamSlow(req: IncomingMessage, res: ServerResponse): void {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk.toString(); });
+    req.on("end", () => {
+        const data = body ? JSON.parse(body) : {};
+        const respId = `resp_mock_${Date.now()}`;
+        const now = Math.floor(Date.now() / 1000);
+        const model = data.model || "gpt-4o";
+
+        res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+        });
+
+        const baseResponse = {
+            id: respId, object: "response", created_at: now, model,
+            status: "in_progress", output: [], error: null,
+            incomplete_details: null, instructions: null,
+            reasoning: { effort: "none", summary: null },
+            temperature: 1.0, tool_choice: "auto", tools: [],
+            usage: null, completed_at: null,
+        };
+        res.write(`data: ${JSON.stringify({ type: "response.created", sequence_number: 0, response: { ...baseResponse } })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: "response.output_text.delta", sequence_number: 1, output_index: 0, content_index: 0, delta: "Hello" })}\n\n`);
+        // Hang indefinitely — never send response.completed
     });
 }
 

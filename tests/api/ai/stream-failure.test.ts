@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { fetch } from "undici";
 import requestHelper from "../../helpers/requestHelper";
 import mockHelper from "../../helpers/mockHelper";
 import dbHelper from "../../helpers/dbHelper";
@@ -23,6 +24,11 @@ let openaiIncompleteModelName: string;
 let openaiDisconnectModelName: string;
 let anthropicIncompleteModelName: string;
 let responsesIncompleteModelName: string;
+
+// Slow vendors/models for client_disconnected tests
+let openaiSlowModelName: string;
+let anthropicSlowModelName: string;
+let responsesSlowModelName: string;
 
 
 describe("Stream Failure Handling", () => {
@@ -106,6 +112,60 @@ describe("Stream Failure Handling", () => {
         await requestHelper.post(
             "/model/create.json",
             { name: responsesIncompleteModelName, vendor_id: responsesIncompleteVendor.body.id, enable: true },
+            adminToken,
+        );
+
+        // --- OpenAI slow vendor/model (for client_disconnected tests) ---
+        const openaiSlowVendor = await requestHelper.post(
+            "/vendor/create.json",
+            {
+                type: "other",
+                name: "Mock OpenAI Slow",
+                token: "test-token",
+                urls: { openai: `${MOCK_BASE}/chat/completions/slow` },
+            },
+            adminToken,
+        );
+        openaiSlowModelName = `openai-slow-${Date.now()}`;
+        await requestHelper.post(
+            "/model/create.json",
+            { name: openaiSlowModelName, vendor_id: openaiSlowVendor.body.id, enable: true },
+            adminToken,
+        );
+
+        // --- Anthropic slow vendor/model ---
+        const anthropicSlowVendor = await requestHelper.post(
+            "/vendor/create.json",
+            {
+                type: "other",
+                name: "Mock Anthropic Slow",
+                token: "test-token",
+                urls: { anthropic: `${MOCK_BASE}/messages/slow` },
+            },
+            adminToken,
+        );
+        anthropicSlowModelName = `anthropic-slow-${Date.now()}`;
+        await requestHelper.post(
+            "/model/create.json",
+            { name: anthropicSlowModelName, vendor_id: anthropicSlowVendor.body.id, enable: true },
+            adminToken,
+        );
+
+        // --- Responses API slow vendor/model ---
+        const responsesSlowVendor = await requestHelper.post(
+            "/vendor/create.json",
+            {
+                type: "other",
+                name: "Mock Responses Slow",
+                token: "test-token",
+                urls: { responses: `${MOCK_BASE}/responses/slow` },
+            },
+            adminToken,
+        );
+        responsesSlowModelName = `responses-slow-${Date.now()}`;
+        await requestHelper.post(
+            "/model/create.json",
+            { name: responsesSlowModelName, vendor_id: responsesSlowVendor.body.id, enable: true },
             adminToken,
         );
     });
@@ -209,6 +269,80 @@ describe("Stream Failure Handling", () => {
 
             expect(record.status).toBe("failed");
             expect(record.failed_code).toBe("stream_incomplete");
+        }, 15000);
+    });
+
+
+    describe("Client disconnect — upstream still running", () => {
+        async function abortStreamAfterFirstChunk(
+            endpoint: string,
+            body: object,
+        ): Promise<void> {
+            const baseUrl = config.SERVER_CONFIG.baseUrl;
+            const ac = new AbortController();
+
+            const response = await fetch(`${baseUrl}${endpoint}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${testUserToken}`,
+                },
+                body: JSON.stringify(body),
+                signal: ac.signal,
+            } as any);
+
+            const reader = (response.body as any).getReader();
+            // Read at least one chunk to confirm the stream started
+            await reader.read();
+            // Abort the client connection while upstream is still hanging
+            ac.abort();
+            reader.cancel().catch(() => {});
+
+            // Give the gateway time to detect the disconnect and update the record
+            await new Promise((resolve) => setTimeout(resolve, 800));
+        }
+
+        it("should set failed_code=client_disconnected for OpenAI /llm/v1/chat/completions", async () => {
+            await abortStreamAfterFirstChunk("/llm/v1/chat/completions", {
+                model: openaiSlowModelName,
+                messages: [{ role: "user", content: "hi" }],
+                stream: true,
+            });
+
+            const recordRes = await requestHelper.get("/record/latest.json?limit=1", adminToken);
+            const record = recordRes.body[0];
+
+            expect(record.status).toBe("failed");
+            expect(record.failed_code).toBe("client_disconnected");
+        }, 15000);
+
+        it("should set failed_code=client_disconnected for Anthropic /llm/v1/messages", async () => {
+            await abortStreamAfterFirstChunk("/llm/v1/messages", {
+                model: anthropicSlowModelName,
+                messages: [{ role: "user", content: "hi" }],
+                stream: true,
+                max_tokens: 100,
+            });
+
+            const recordRes = await requestHelper.get("/record/latest.json?limit=1", adminToken);
+            const record = recordRes.body[0];
+
+            expect(record.status).toBe("failed");
+            expect(record.failed_code).toBe("client_disconnected");
+        }, 15000);
+
+        it("should set failed_code=client_disconnected for Responses /llm/v1/responses", async () => {
+            await abortStreamAfterFirstChunk("/llm/v1/responses", {
+                model: responsesSlowModelName,
+                input: "hi",
+                stream: true,
+            });
+
+            const recordRes = await requestHelper.get("/record/latest.json?limit=1", adminToken);
+            const record = recordRes.body[0];
+
+            expect(record.status).toBe("failed");
+            expect(record.failed_code).toBe("client_disconnected");
         }, 15000);
     });
 });
