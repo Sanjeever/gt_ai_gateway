@@ -8,9 +8,15 @@ const FALLBACK_VERSION = packageJson.version;
 export const useAppStore = defineStore('app', () => {
     const sidebarCollapsed = ref(false);
     const version = ref(FALLBACK_VERSION);
+    const isDeveloperMode = ref(localStorage.getItem('developerMode') === 'true');
 
     function toggleSidebar() {
         sidebarCollapsed.value = !sidebarCollapsed.value;
+    }
+
+    function enableDeveloperMode() {
+        isDeveloperMode.value = true;
+        localStorage.setItem('developerMode', 'true');
     }
 
     async function fetchVersion() {
@@ -25,7 +31,9 @@ export const useAppStore = defineStore('app', () => {
     return {
         sidebarCollapsed,
         version,
+        isDeveloperMode,
         toggleSidebar,
+        enableDeveloperMode,
         fetchVersion,
     };
 });

@@ -1,7 +1,7 @@
 <template>
     <div class="app-header">
         <div class="header-left">
-            <img src="/favicon.svg" alt="Logo" class="logo">
+            <img src="/favicon.svg" alt="Logo" class="logo" @click="handleLogoClick">
             <span class="title">{{ title }}</span>
         </div>
         <div class="header-right">
@@ -36,10 +36,15 @@ import {
 } from '@ant-design/icons-vue';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
+import { useAppStore } from '@/stores/app';
 
 const router = useRouter();
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
+const appStore = useAppStore(); // import useAppStore
+
+let logoClickCount = 0;
+let logoClickTimer: number | null = null;
 
 const strokeIconProps = {
     viewBox: '0 0 24 24',
@@ -98,6 +103,25 @@ function handleLogout() {
 function toggleTheme() {
     themeStore.toggleTheme();
     message.success(`已切换为${themeStore.isDark ? '浅色' : '深色'}模式`);
+}
+
+function handleLogoClick() {
+    if (appStore.isDeveloperMode) return;
+    
+    logoClickCount++;
+    if (logoClickTimer) {
+        clearTimeout(logoClickTimer);
+    }
+    
+    logoClickTimer = window.setTimeout(() => {
+        logoClickCount = 0;
+    }, 1000); // 1秒内连按才算
+    
+    if (logoClickCount >= 10) {
+        appStore.enableDeveloperMode();
+        message.success('已开启开发者模式');
+        logoClickCount = 0;
+    }
 }
 </script>
 

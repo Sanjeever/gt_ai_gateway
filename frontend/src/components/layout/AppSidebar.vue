@@ -43,6 +43,10 @@
                     <ControlOutlined />
                     <span>高级设置</span>
                 </a-menu-item>
+                <a-menu-item v-if="appStore.isDeveloperMode" key="/developer">
+                    <CodeOutlined />
+                    <span>开发者</span>
+                </a-menu-item>
             </a-menu>
         </div>
         <div class="sidebar-footer">
@@ -79,7 +83,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { DashboardOutlined, UserOutlined, ApiOutlined, SettingOutlined, FileTextOutlined, ExperimentOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LinkOutlined, DollarOutlined, ControlOutlined } from '@ant-design/icons-vue';
+import { DashboardOutlined, UserOutlined, ApiOutlined, SettingOutlined, FileTextOutlined, ExperimentOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LinkOutlined, DollarOutlined, ControlOutlined, CodeOutlined } from '@ant-design/icons-vue';
 import { useAppStore } from '@/stores/app';
 import { checkUpdate } from '@/api/system';
 
@@ -103,6 +107,7 @@ const selectedKeys = computed(() => {
     if (path.startsWith('/api-test')) return ['/api-test'];
     if (path.startsWith('/integration')) return ['/integration'];
     if (path.startsWith('/advanced-settings')) return ['/advanced-settings'];
+    if (path.startsWith('/developer')) return ['/developer'];
     return [path];
 });
 

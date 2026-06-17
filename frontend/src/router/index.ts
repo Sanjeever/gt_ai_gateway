@@ -22,6 +22,7 @@ import BalanceIndex from '@/views/Balance/Index.vue';
 import ApiTestIndex from '@/views/ApiTest/Index.vue';
 import IntegrationIndex from '@/views/Integration/Index.vue';
 import AdvancedSettings from '@/views/AdvancedSettings.vue';
+import Developer from '@/views/Developer.vue';
 
 const routes: RouteRecordRaw[] = [
     {
@@ -143,6 +144,12 @@ const routes: RouteRecordRaw[] = [
                 name: 'AdvancedSettings',
                 component: AdvancedSettings,
                 meta: { title: '高级设置' },
+            },
+            {
+                path: 'developer',
+                name: 'Developer',
+                component: Developer,
+                meta: { title: '开发者设置' },
             },
         ],
     },
