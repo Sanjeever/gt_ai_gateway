@@ -26,7 +26,7 @@
             </div>
 
             <div class="settings-section">
-                <h3 class="section-title" style="color: var(--error-color, #ff4d4f)">危险操作</h3>
+                <h3 class="section-title">界面设置</h3>
                 <div class="settings-list">
                     <div class="setting-item">
                         <div class="setting-info">
@@ -34,7 +34,7 @@
                             <div class="setting-desc">关闭开发者选项并隐藏此页面。</div>
                         </div>
                         <div class="setting-action">
-                            <a-button danger @click="exitDeveloperMode">
+                            <a-button @click="exitDeveloperMode">
                                 退出开发者模式
                             </a-button>
                         </div>
