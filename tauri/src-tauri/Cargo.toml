@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 libc = "0.2"
 
 [dependencies]
-tauri = { version = "2", features = ["devtools", "tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
