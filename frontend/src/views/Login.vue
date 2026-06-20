@@ -37,10 +37,11 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { reactive, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { notifyError, notifySuccess } from '@/utils/requestFeedback';
+import { isTauri } from '@/utils/platform';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -54,6 +55,39 @@ const formState = reactive({
 const rules = {
     token: [{ required: true, message: '请输入 Token' }],
 };
+
+// 后端就绪后自动尝试登录
+let unlistenBackend: (() => void) | null = null;
+
+async function tryAutoLogin() {
+    if (!authStore.isAuthenticated || loading.value) return;
+    loading.value = true;
+    try {
+        const result = await authStore.validateToken();
+        if (result.success) {
+            const redirect = router.currentRoute.value.query.redirect as string;
+            router.push(redirect || '/dashboard');
+        }
+    } catch {} finally {
+        loading.value = false;
+    }
+}
+
+onMounted(async () => {
+    if (!isTauri()) return;
+    // 先尝试一次
+    await tryAutoLogin();
+    // 后端就绪事件再次尝试
+    if (isTauri()) {
+        const { listen } = await import('@tauri-apps/api/event');
+        const unlisten = await listen('backend-ready', () => tryAutoLogin());
+        unlistenBackend = unlisten;
+    }
+});
+
+onUnmounted(() => {
+    if (unlistenBackend) unlistenBackend();
+});
 
 async function handleLogin() {
     if (!formState.token.trim()) {
