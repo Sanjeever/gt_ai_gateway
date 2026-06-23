@@ -22,17 +22,6 @@
                 "resizable": false,
                 "alwaysOnTop": true,
                 "devtools": true
-            },
-            {
-                "title": "GT AI Gateway",
-                "label": "main",
-                "url": "index.html",
-                "width": 1280,
-                "height": 800,
-                "resizable": true,
-                "visible": false,
-                "center": true,
-                "devtools": true
             }
         ],
         "security": {

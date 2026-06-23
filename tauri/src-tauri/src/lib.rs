@@ -48,11 +48,14 @@ fn exit_app() {
 }
 
 #[tauri::command]
-fn open_main_window(app: tauri::AppHandle) {
+async fn open_main_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(splash) = app.get_webview_window("splashscreen") {
         let _ = splash.close();
     }
-    show_main_window(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        show_main_window(&app)
+    }).await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -148,33 +151,24 @@ fn read_config(app_data_dir: &Path) -> AppConfig {
 
 fn show_main_window(app: &tauri::AppHandle) {
     println!("RUST: show_main_window called");
-    // Also write to file for safety
-    let log_path = std::path::Path::new("C:\\Users\\111\\gt_ai_gateway\\rust_bootstrap.log");
-    match std::fs::write(log_path, "show_main_window_called\n") {
-        Ok(_) => println!("RUST: show_main_window debug log written"),
-        Err(e) => println!("RUST: FAILED to write debug log: {}", e),
-    }
     if let Some(window) = app.get_webview_window("main") {
-        println!("RUST: found existing main window, showing it");
+        println!("RUST: main window already exists, showing it");
         let _ = window.show();
         let _ = window.set_focus();
-    } else {
-        println!("RUST: creating new main window with index.html");
-        let result = tauri::WebviewWindowBuilder::new(
-            app,
-            "main",
-            tauri::WebviewUrl::App("index.html".into())
-        )
-        .title("GT AI Gateway")
-        .inner_size(1280.0, 800.0)
-        .resizable(true)
-        .build();
-
-        match result {
-            Ok(_) => println!("RUST: main window created successfully"),
-            Err(e) => println!("RUST: FAILED to create main window: {:?}", e),
-        }
+        return;
     }
+    let _ = tauri::WebviewWindowBuilder::new(
+        app,
+        "main",
+        tauri::WebviewUrl::App("index.html".into())
+    )
+    .title("GT AI Gateway")
+    .inner_size(1280.0, 800.0)
+    .resizable(true)
+    .devtools(true)
+    .build()
+    .map(|_| println!("RUST: main window created successfully"))
+    .map_err(|e| println!("RUST: FAILED to create main window: {:?}", e));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
