@@ -20,6 +20,9 @@ abstract class BaseConfigAdapter implements ConfigAdapter {
     readonly configPath: string;
     readonly configPaths: string[];
 
+    abstract parseConfigContent(configContent: ClientConfigContent): ClientConfigFields | null;
+    abstract patchConfigContent(content: ClientConfigContent, fields: ClientConfigFields): ClientConfigContent;
+
     constructor(
         fs: FileSystemApi,
         path: PathApi,
