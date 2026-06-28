@@ -1,5 +1,6 @@
 import ormService from "../ormService";
 import SgClientConfig from "../../model/sgClientConfig";
+import vendorService from "../vendorService";
 import { ClientName, ConnectionMode } from "../../constants";
 import type {
     ApplyClientConfigParams,
@@ -120,6 +121,10 @@ async function toBackupInfo(record: SgClientConfig, adapter: ConfigAdapter): Pro
     const rawContent = record.configContent || {};
     const parsedConfig = extractFieldsFromBackup(rawContent, adapter);
 
+    if (parsedConfig?.connectionMode === ConnectionMode.VENDOR && parsedConfig.gatewayUrl) {
+        (parsedConfig as any).matchedVendorId = await vendorService.findVendorByUrl(parsedConfig.gatewayUrl, adapter.protocol);
+    }
+
     return {
         id: Number(record.id),
         client: record.client as ClientName,
@@ -128,6 +133,7 @@ async function toBackupInfo(record: SgClientConfig, adapter: ConfigAdapter): Pro
         createdAt: String(record.created_at || ""),
         enabled: isEnabled(record.enabled),
         config: await enrichGatewayUser(parsedConfig),
+        matchedVendorId: (parsedConfig as any).matchedVendorId ?? null,
     };
 }
 

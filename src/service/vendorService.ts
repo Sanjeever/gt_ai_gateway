@@ -1,4 +1,5 @@
 import { SgVendor } from "../model/sgVendor";
+import { ApiFormat } from "../constants";
 
 
 async function getVendorByName(name: string): Promise<SgVendor | null> {
@@ -38,7 +39,31 @@ async function updateVendor(
     return await SgVendor.query().find(vendorId);
 }
 
+async function findVendorByUrl(gatewayUrl: string, protocol: ApiFormat): Promise<number | null> {
+    if (!gatewayUrl) return null;
+
+    const vendors = await SgVendor.query().get();
+    for (const vendor of vendors) {
+        const mergedUrls = vendor.getMergedUrls();
+        let vendorUrl: string | undefined;
+
+        if (protocol === ApiFormat.RESPONSES) {
+            vendorUrl = mergedUrls[ApiFormat.RESPONSES] || mergedUrls[ApiFormat.OPENAI];
+        } else {
+            vendorUrl = mergedUrls[protocol];
+        }
+
+        if (vendorUrl && gatewayUrl.startsWith(vendorUrl)) {
+            return Number(vendor.id);
+        }
+    }
+
+    return null;
+}
+
+
 export default {
     getVendorByName,
     updateVendor,
+    findVendorByUrl,
 };

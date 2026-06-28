@@ -82,6 +82,7 @@ interface ClientConfigBackupInfo {
     createdAt: string;
     enabled: boolean;
     config: CurrentClientConfig | null;
+    matchedVendorId: number | null;
 }
 
 interface FileSystemApi {

@@ -453,7 +453,7 @@
                             </span>
                         </template>
                         <a-form-item label="协议">
-                            <a-input :value="selectedProtocolLabel" disabled />
+                            <a-input :value="detailProtocolLabel" disabled />
                         </a-form-item>
                         <a-form-item label="服务端地址">
                             <a-input :value="detailConfig.gatewayUrl" disabled />
@@ -506,40 +506,14 @@
                             </span>
                         </template>
                         <a-form-item label="协议">
-                            <a-input :value="selectedProtocolLabel" disabled />
+                            <a-input :value="detailProtocolLabel" disabled />
                         </a-form-item>
                         <a-form-item label="供应商">
-                            <a-select :value="findVendorByUrl(detailConfig.gatewayUrl, selectedClient?.protocol)?.id" disabled class="readonly-select">
-                                <a-select-option
-                                    v-for="vendor in vendors"
-                                    :key="vendor.id"
-                                    :value="vendor.id"
-                                    :label="`${vendor.name} ${getVendorTypeLabel(vendor.type)}`"
-                                >
-                                    <div class="select-option-row">
-                                        <a-tag
-                                            class="select-tag"
-                                            :color="getVendorTypeColor(vendor.type)"
-                                            :style="getVendorTypeTagStyle(vendor.type)"
-                                        >
-                                            {{ getVendorTypeLabel(vendor.type) }}
-                                        </a-tag>
-                                        <span class="select-option-name">{{ vendor.name }}</span>
-                                    </div>
-                                </a-select-option>
-                                <template #labelRender="{ value }">
-                                    <div v-if="findVendor(Number(value))" class="select-option-row selected-option">
-                                        <a-tag
-                                            class="select-tag"
-                                            :color="getVendorTypeColor(findVendor(Number(value))?.type)"
-                                            :style="getVendorTypeTagStyle(findVendor(Number(value))?.type)"
-                                        >
-                                            {{ getVendorTypeLabel(findVendor(Number(value))?.type) }}
-                                        </a-tag>
-                                        <span class="select-option-name">{{ findVendor(Number(value))?.name }}</span>
-                                    </div>
-                                </template>
-                            </a-select>
+                            <a-input
+                                :value="detailMatchedVendor ? detailMatchedVendor.name : ''"
+                                disabled
+                                :placeholder="detailMatchedVendor ? '' : '-'"
+                            />
                         </a-form-item>
                         <a-form-item label="模型">
                             <a-select :value="detailConfig.model" disabled class="readonly-select">
@@ -637,6 +611,7 @@ const configDialogVisible = ref(false);
 const renameDialogVisible = ref(false);
 const detailDialogVisible = ref(false);
 const detailConfig = ref<CurrentClientConfig | null>(null);
+const detailClient = ref<ClientConfigStatus | null>(null);
 const detailClientName = ref('');
 const detailConfigName = ref('');
 
@@ -687,6 +662,8 @@ const clientProtocolLabels: Record<ClientName, string> = {
 
 const enabledModels = computed(() => models.value.filter(model => model.enable));
 const selectedProtocolLabel = computed(() => selectedClient.value ? clientProtocolLabels[selectedClient.value.client] : '');
+const detailProtocolLabel = computed(() => detailClient.value ? clientProtocolLabels[detailClient.value.client] : '');
+const detailMatchedVendor = computed(() => detailConfig.value?.matchedVendorId ? findVendor(detailConfig.value.matchedVendorId) : undefined);
 const configDialogTitle = computed(() => selectedClient.value ? `配置 ${selectedClient.value.displayName}` : '配置客户端');
 const detailDialogTitle = computed(() => detailConfigName.value ? `配置详情：${detailConfigName.value}` : '配置详情');
 
@@ -995,14 +972,6 @@ function findUser(id: number): User | undefined {
     return users.value.find(user => user.id === id);
 }
 
-function findVendorByUrl(url: string, protocol?: ApiFormat): Vendor | undefined {
-    if (!url || !protocol) return undefined;
-    return vendors.value.find(vendor => {
-        const vendorUrl = getVendorUrl(vendor, protocol);
-        return vendorUrl && url.startsWith(vendorUrl);
-    });
-}
-
 function findVendor(id: number): Vendor | undefined {
     return vendors.value.find(vendor => vendor.id === id);
 }
@@ -1088,6 +1057,7 @@ function getVendorTypeTagStyle(type?: VendorType) {
 
 async function openDetailDialog(client: ClientConfigStatus, config: CurrentClientConfig | null, name: string): Promise<void> {
     await loadDialogOptions();
+    detailClient.value = client;
     detailClientName.value = client.displayName;
     detailConfigName.value = name;
     detailConfig.value = config;

@@ -40,6 +40,7 @@ export interface CurrentClientConfig {
     model: string;
     gatewayUser: GatewayUserInfo | null;
     effortLevel?: string;
+    matchedVendorId?: number | null;
 }
 
 export interface GatewayUserInfo {
