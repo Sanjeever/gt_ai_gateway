@@ -1,5 +1,7 @@
 import ormService from "../ormService";
 import SgClientConfig from "../../model/sgClientConfig";
+import { SgVendor } from "../../model/sgVendor";
+import { SgUser } from "../../model/sgUser";
 import vendorService from "../vendorService";
 import { ClientName, ConnectionMode } from "../../constants";
 import type {
@@ -248,6 +250,19 @@ async function getStatus(): Promise<ClientConfigStatusResponse> {
 }
 
 
+async function resolveApiKey(connectionMode?: ConnectionMode, vendorId?: number, userId?: number): Promise<string> {
+    if (connectionMode === ConnectionMode.VENDOR && vendorId) {
+        const vendor = await SgVendor.query().where('id', vendorId).first();
+        if (vendor?.token) return vendor.token;
+    }
+    if (connectionMode === ConnectionMode.GATEWAY && userId) {
+        const user = await SgUser.query().where('id', userId).first();
+        if (user?.token) return user.token;
+    }
+    return '';
+}
+
+
 async function createConfig(params: CreateClientConfigParams): Promise<ClientConfigStatus> {
     if (ormService.isWorker) {
         throw new Error("客户端管理需要读写本机配置文件，请本地安装后使用。");
@@ -259,13 +274,21 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
             throw new Error("Gateway URL is required");
         }
 
-        if (!params.apiKey?.trim()) {
-            throw new Error("API key is required");
+        if (params.connectionMode === ConnectionMode.VENDOR) {
+            if (!params.vendorId) {
+                throw new Error("Vendor is required");
+            }
+        } else if (params.connectionMode === ConnectionMode.GATEWAY) {
+            if (!params.userId) {
+                throw new Error("User is required");
+            }
         }
     }
 
     const adapter = await getAdapter(params.client);
     const existingContent = await adapter.readConfig();
+
+    const apiKey = await resolveApiKey(params.connectionMode, params.vendorId, params.userId);
 
     // For Codex OFFICIAL mode, read authJson from local config and update access_token
     let authJson: Record<string, any> | undefined;
@@ -277,7 +300,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
                 // Only use authJson if it has tokens with id_token
                 if (parsed?.tokens?.id_token) {
                     authJson = parsed;
-                    authJson.tokens.access_token = params.apiKey.trim();
+                    authJson.tokens.access_token = apiKey;
                 }
             } catch (e) {
                 // Ignore parsing errors
@@ -289,7 +312,7 @@ async function createConfig(params: CreateClientConfigParams): Promise<ClientCon
         version: "v1",
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl.trim(),
-        apiKey: params.apiKey.trim(),
+        apiKey,
         model: params.model?.trim() || "",
         effortLevel: params.effortLevel?.trim(),
         authJson,
@@ -367,8 +390,14 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
             throw new Error("Gateway URL is required");
         }
 
-        if (!params.apiKey?.trim()) {
-            throw new Error("API key is required");
+        if (params.connectionMode === ConnectionMode.VENDOR) {
+            if (!params.vendorId) {
+                throw new Error("Vendor is required");
+            }
+        } else if (params.connectionMode === ConnectionMode.GATEWAY) {
+            if (!params.userId) {
+                throw new Error("User is required");
+            }
         }
     }
 
@@ -382,11 +411,13 @@ async function updateBackupConfig(params: UpdateClientConfigBackupParams): Promi
         throw new Error("Backup not found");
     }
 
+    const apiKey = await resolveApiKey(params.connectionMode, params.vendorId, params.userId);
+
     const fields: ClientConfigContent = {
         version: "v1",
         connectionMode: params.connectionMode || ConnectionMode.GATEWAY,
         gatewayUrl: params.gatewayUrl?.trim() || "",
-        apiKey: params.apiKey?.trim() || "",
+        apiKey,
         model: params.model?.trim() || "",
         effortLevel: params.effortLevel?.trim(),
     };

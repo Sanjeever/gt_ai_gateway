@@ -3,7 +3,6 @@ import requestHelper from "../helpers/requestHelper";
 import mockHelper from "../helpers/mockHelper";
 import vendorFixtures from "../fixtures/vendorFixtures";
 import modelFixtures from "../fixtures/modelFixtures";
-import testHelpers from "../testHelpers";
 import dbHelper from "../helpers/dbHelper"
 import { setupAdminUser } from "../globalSetup";
 

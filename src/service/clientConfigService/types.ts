@@ -3,6 +3,8 @@ import type { ClientConfigContent } from "../../model/sgClientConfig";
 
 interface CreateClientConfigParams extends ClientConfigContent {
     client: ClientName;
+    vendorId?: number;
+    userId?: number;
 }
 
 interface ApplyClientConfigParams {

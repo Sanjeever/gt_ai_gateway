@@ -71,7 +71,8 @@ export interface CreateClientConfigRequest {
     client: ClientName;
     connectionMode?: ClientConnectionMode;
     gatewayUrl: string;
-    apiKey: string;
+    userId?: number;
+    vendorId?: number;
     model: string;
     effortLevel?: string;
 }

@@ -183,7 +183,7 @@
                                                 size="small"
                                                 style="font-size: 13px;"
                                                 :disabled="!backup.config"
-                                                @click="openDetailDialog(client, backup.config, backup.name)"
+                                                @click="openConfigDialog(client, backup, 'detail')"
                                             >
                                                 <InfoCircleOutlined />
                                                 查看
@@ -221,451 +221,89 @@
             />
         </a-spin>
 
-        <a-modal
+        <ConfigDialog
             v-model:open="configDialogVisible"
-            :title="configDialogTitle"
-            :confirm-loading="savingClient === configForm.client"
-            ok-text="保存"
-            cancel-text="取消"
-            width="560px"
-            @ok="submitConfig"
-        >
-            <a-spin :spinning="dialogLoading">
-                <a-form layout="vertical" class="config-form">
+            :mode="configDialogMode"
+            :selected-client="configDialogClient"
+            :backup="configDialogBackup"
+            :users="users"
+            :models="models"
+            :vendors="vendors"
+            :vendor-preset-urls="vendorPresetUrls"
+            :default-gateway-url="configDialogDefaultUrl"
+            @save="handleConfigSave"
+        />
 
-                    <a-tabs
-                        v-model:activeKey="configForm.connectionMode"
-                        class="connection-tabs"
-                        @change="handleConnectionModeChange"
-                    >
-                        <a-tab-pane :key="ClientConnectionMode.GATEWAY">
-                            <template #tab>
-                                <span>
-                                    通过 GT AI Gateway
-                                    <a-tooltip>
-                                        <template #title>
-                                            <div>代理模式：客户端通过 GtAIGateway 连接上游。</div>
-                                            <div>支持高级功能，如抓取请求流量进行分析、自动协议转换、提升缓存命中率等。</div>
-                                        </template>
-                                        <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                    </a-tooltip>
-                                </span>
-                            </template>
-                            <a-form-item label="协议">
-                                <a-input :value="selectedProtocolLabel" disabled />
-                            </a-form-item>
-                            <a-form-item label="服务端地址" required>
-                                <a-input v-model:value="configForm.gatewayUrl" />
-                            </a-form-item>
-                            <a-form-item required>
-                                <template #label>
-                                    <span class="form-label-with-help">
-                                        用户
-                                        <a-tooltip title="选择一个网关用户，系统会把该用户的 Token 写入客户端配置，用于客户端访问当前网关。">
-                                            <InfoCircleOutlined class="label-help-icon" />
-                                        </a-tooltip>
-                                    </span>
-                                </template>
-                                <a-select
-                                    v-model:value="configForm.userId"
-                                    show-search
-                                    placeholder="选择用于写入客户端的用户 Token"
-                                    :filter-option="filterSelectOption"
-                                >
-                                    <a-select-option
-                                        v-for="user in users"
-                                        :key="user.id"
-                                        :value="user.id"
-                                        :label="`${user.name} ${getUserTypeLabel(user.type)} ${user.status}`"
-                                    >
-                                        <div class="select-option-row">
-                                            <a-tag class="select-tag" :color="getUserTypeColor(user.type)">
-                                                {{ getUserTypeLabel(user.type) }}
-                                            </a-tag>
-                                            <span class="select-option-name">{{ user.name }}</span>
-                                            <a-tag v-if="user.status !== 'active'" class="select-tag" color="red">
-                                                已禁用
-                                            </a-tag>
-                                        </div>
-                                    </a-select-option>
-                                    <template #labelRender="{ value }">
-                                        <div v-if="findUser(Number(value))" class="select-option-row selected-option">
-                                            <a-tag class="select-tag" :color="getUserTypeColor(findUser(Number(value))?.type)">
-                                                {{ getUserTypeLabel(findUser(Number(value))?.type) }}
-                                            </a-tag>
-                                            <span class="select-option-name">{{ findUser(Number(value))?.name }}</span>
-                                            <a-tag v-if="findUser(Number(value))?.status !== 'active'" class="select-tag" color="red">
-                                                已禁用
-                                            </a-tag>
-                                        </div>
-                                    </template>
-                                </a-select>
-                            </a-form-item>
-                            <a-form-item label="模型" required>
-                                <a-select
-                                    v-model:value="configForm.model"
-                                    show-search
-                                    placeholder="选择网关模型"
-                                    :filter-option="filterSelectOption"
-                                >
-                                    <a-select-option
-                                        v-for="model in enabledModels"
-                                        :key="model.id"
-                                        :value="model.name"
-                                        :label="model.name"
-                                    >
-                                        {{ model.name }}
-                                    </a-select-option>
-                                </a-select>
-                            </a-form-item>
-                        </a-tab-pane>
-
-                        <a-tab-pane :key="ClientConnectionMode.VENDOR">
-                            <template #tab>
-                                <span>
-                                    直连上游供应商
-                                    <a-tooltip title="直连模式：客户端直接连接上游供应商，不经过 GtAIGateway 代理。">
-                                        <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                    </a-tooltip>
-                                </span>
-                            </template>
-                            <a-form-item label="协议">
-                                <a-input :value="selectedProtocolLabel" disabled />
-                            </a-form-item>
-                            <a-form-item label="供应商" required>
-                                <a-select
-                                    v-model:value="configForm.vendorId"
-                                    show-search
-                                    placeholder="选择上游供应商"
-                                    :filter-option="filterSelectOption"
-                                    @change="handleVendorChange"
-                                >
-                                    <a-select-option
-                                        v-for="vendor in vendors"
-                                        :key="vendor.id"
-                                        :value="vendor.id"
-                                        :label="`${vendor.name} ${getVendorTypeLabel(vendor.type)}`"
-                                    >
-                                        <div class="select-option-row">
-                                            <a-tag
-                                                class="select-tag"
-                                                :color="getVendorTypeColor(vendor.type)"
-                                                :style="getVendorTypeTagStyle(vendor.type)"
-                                            >
-                                                {{ getVendorTypeLabel(vendor.type) }}
-                                            </a-tag>
-                                            <span class="select-option-name">{{ vendor.name }}</span>
-                                        </div>
-                                    </a-select-option>
-                                    <template #labelRender="{ value }">
-                                        <div v-if="findVendor(Number(value))" class="select-option-row selected-option">
-                                            <a-tag
-                                                class="select-tag"
-                                                :color="getVendorTypeColor(findVendor(Number(value))?.type)"
-                                                :style="getVendorTypeTagStyle(findVendor(Number(value))?.type)"
-                                            >
-                                                {{ getVendorTypeLabel(findVendor(Number(value))?.type) }}
-                                            </a-tag>
-                                            <span class="select-option-name">{{ findVendor(Number(value))?.name }}</span>
-                                        </div>
-                                    </template>
-                                </a-select>
-                            </a-form-item>
-                            <a-form-item label="模型" required>
-                                <a-select
-                                    v-model:value="configForm.upstreamModel"
-                                    show-search
-                                    placeholder="选择供应商模型"
-                                    :filter-option="filterSelectOption"
-                                >
-                                    <a-select-option
-                                        v-for="model in vendorModels"
-                                        :key="model.id"
-                                        :value="model.model_id"
-                                        :label="model.model_id"
-                                    >
-                                        {{ model.model_id }}
-                                    </a-select-option>
-                                </a-select>
-                            </a-form-item>
-                        </a-tab-pane>
-
-                        <a-tab-pane :key="ClientConnectionMode.OFFICIAL">
-                            <template #tab>
-                                <span>
-                                    直连官方
-                                    <a-tooltip title="直连官方：客户端直接连接官方服务">
-                                        <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                    </a-tooltip>
-                                </span>
-                            </template>
-                            <a-alert
-                                message="只读配置"
-                                description="创建后请通过客户端登录。登录完成后，可使用「从本地配置新建」功能导入已登录的配置。"
-                                type="info"
-                                show-icon
-                                style="margin-bottom: 24px;"
-                            />
-                        </a-tab-pane>
-                    </a-tabs>
-                    <a-form-item
-                        v-if="configForm.client === ClientName.CLAUDE_CODE"
-                        label="思考强度"
-                    >
-                        <a-select
-                            v-model:value="configForm.effortLevel"
-                            placeholder="选择思考强度"
-                            allow-clear
-                        >
-                            <a-select-option value="low">低 (low)</a-select-option>
-                            <a-select-option value="medium">中 (medium)</a-select-option>
-                            <a-select-option value="high">高 (high)</a-select-option>
-                        </a-select>
-                    </a-form-item>
-                </a-form>
-            </a-spin>
-        </a-modal>
-
-        <a-modal
-            v-model:open="detailDialogVisible"
-            :title="detailDialogTitle"
-            :footer="null"
-            width="560px"
-        >
-            <a-empty v-if="!detailConfig" description="未检测到有效配置" />
-            <a-form v-else layout="vertical" class="config-form readonly-config-form">
-
-                <a-tabs
-                    :activeKey="detailConfig.connectionMode"
-                    class="connection-tabs"
-                >
-                    <a-tab-pane :key="ClientConnectionMode.GATEWAY" :disabled="detailConfig.connectionMode !== ClientConnectionMode.GATEWAY">
-                        <template #tab>
-                            <span>
-                                通过 GT AI Gateway
-                                <a-tooltip>
-                                    <template #title>
-                                        <div>代理模式：客户端通过 GtAIGateway 连接上游。</div>
-                                        <div>支持高级功能，如抓取请求流量进行分析、自动协议转换、提升缓存命中率等。</div>
-                                    </template>
-                                    <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                </a-tooltip>
-                            </span>
-                        </template>
-                        <a-form-item label="协议">
-                            <a-input :value="detailProtocolLabel" disabled />
-                        </a-form-item>
-                        <a-form-item label="服务端地址">
-                            <a-input :value="detailConfig.gatewayUrl" disabled />
-                        </a-form-item>
-                        <a-form-item label="用户">
-                            <a-select :value="detailConfig.gatewayUser?.id" disabled class="readonly-select">
-                                <a-select-option
-                                    v-for="user in users"
-                                    :key="user.id"
-                                    :value="user.id"
-                                    :label="`${user.name} ${getUserTypeLabel(user.type)} ${user.status}`"
-                                >
-                                    <div class="select-option-row">
-                                        <a-tag class="select-tag" :color="getUserTypeColor(user.type)">
-                                            {{ getUserTypeLabel(user.type) }}
-                                        </a-tag>
-                                        <span class="select-option-name">{{ user.name }}</span>
-                                        <a-tag v-if="user.status !== 'active'" class="select-tag" color="red">
-                                            已禁用
-                                        </a-tag>
-                                    </div>
-                                </a-select-option>
-                                <template #labelRender="{ value }">
-                                    <div v-if="findUser(Number(value))" class="select-option-row selected-option">
-                                        <a-tag class="select-tag" :color="getUserTypeColor(findUser(Number(value))?.type)">
-                                            {{ getUserTypeLabel(findUser(Number(value))?.type) }}
-                                        </a-tag>
-                                        <span class="select-option-name">{{ findUser(Number(value))?.name }}</span>
-                                        <a-tag v-if="findUser(Number(value))?.status !== 'active'" class="select-tag" color="red">
-                                            已禁用
-                                        </a-tag>
-                                    </div>
-                                </template>
-                            </a-select>
-                        </a-form-item>
-                        <a-form-item label="模型">
-                            <a-select :value="detailConfig.model" disabled class="readonly-select">
-                                <a-select-option :value="detailConfig.model">{{ detailConfig.model }}</a-select-option>
-                            </a-select>
-                        </a-form-item>
-                    </a-tab-pane>
-
-                    <a-tab-pane :key="ClientConnectionMode.VENDOR" :disabled="detailConfig.connectionMode !== ClientConnectionMode.VENDOR">
-                        <template #tab>
-                            <span>
-                                直连上游供应商
-                                <a-tooltip title="直连模式：客户端直接连接上游供应商，不经过 GtAIGateway 代理。">
-                                    <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                </a-tooltip>
-                            </span>
-                        </template>
-                        <a-form-item label="协议">
-                            <a-input :value="detailProtocolLabel" disabled />
-                        </a-form-item>
-                        <a-form-item label="供应商">
-                            <a-input
-                                :value="detailMatchedVendor ? detailMatchedVendor.name : ''"
-                                disabled
-                                :placeholder="detailMatchedVendor ? '' : '-'"
-                            />
-                        </a-form-item>
-                        <a-form-item label="模型">
-                            <a-select :value="detailConfig.model" disabled class="readonly-select">
-                                <a-select-option :value="detailConfig.model">{{ detailConfig.model }}</a-select-option>
-                            </a-select>
-                        </a-form-item>
-                    </a-tab-pane>
-
-                    <a-tab-pane :key="ClientConnectionMode.OFFICIAL" :disabled="detailConfig.connectionMode !== ClientConnectionMode.OFFICIAL">
-                        <template #tab>
-                            <span>
-                                直连官方
-                                <a-tooltip title="直连官方：客户端直接连接官方服务">
-                                    <InfoCircleOutlined class="label-help-icon" style="margin-left: 4px;" />
-                                </a-tooltip>
-                            </span>
-                        </template>
-                        <a-alert
-                            message="只读配置"
-                            description="直连官方的配置不可在网关侧进行编辑，如需更新配置请在客户端本地重新登录，然后使用「从本地配置新建」功能进行更新。"
-                            type="warning"
-                            show-icon
-                            style="margin-bottom: 24px;"
-                        />
-                    </a-tab-pane>
-                </a-tabs>
-            </a-form>
-        </a-modal>
-
-        <a-modal
+        <RenameDialog
             v-model:open="renameDialogVisible"
-            title="修改配置名称"
-            :confirm-loading="renamingBackupId === renameForm.backupId"
-            ok-text="保存"
-            cancel-text="取消"
-            width="420px"
-            @ok="submitRenameConfig"
-        >
-            <a-form layout="vertical">
-                <a-form-item label="名称" required>
-                    <a-input v-model:value="renameForm.name" />
-                </a-form-item>
-            </a-form>
-        </a-modal>
+            :client="renameForm.client"
+            :backup-id="renameForm.backupId"
+            :initial-name="renameForm.name"
+            @renamed="handleRename"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { message, Modal } from 'ant-design-vue/es';
 import { ArrowRightOutlined, CheckCircleFilled, CopyOutlined, DeleteOutlined, EditOutlined, InfoCircleOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import {
     applyClientConfig,
-    createClientConfig,
     createClientConfigBackup,
     deleteClientConfigBackup,
     getClientConfigStatus,
-    renameClientConfigBackup,
     updateClientConfigBackup,
 } from '@/api/clientConfig';
 import { ClientName, ClientConnectionMode } from '@/types/clientConfig';
-import { ApiFormat } from '@/types/gateway';
 import type {
     ClientConfigBackupInfo,
     ClientConfigStatus,
-    CurrentClientConfig,
 } from '@/types/clientConfig';
-import { getBaseURL } from '@/utils/request';
 import { listUsers } from '@/api/user';
 import { listModels } from '@/api/model';
-import type { User, UserType } from '@/types/user';
+import type { User } from '@/types/user';
 import type { Model } from '@/types/model';
 import { normalizeListResponse } from '@/utils/listResponse';
-import { getVendorPresetUrls, listVendorModels, listVendors } from '@/api/vendor';
-import type { Vendor, VendorModel, VendorType } from '@/types/vendor';
+import { getVendorPresetUrls, listVendors } from '@/api/vendor';
+import type { Vendor } from '@/types/vendor';
+import { getBaseURL } from '@/utils/request';
+import ConfigDialog from '@/components/clientConfig/ConfigDialog.vue';
+import RenameDialog from '@/components/clientConfig/RenameDialog.vue';
+import {
+    getConnectionModeLabel,
+    getConnectionModeColor,
+    isGatewayConfig,
+} from '@/utils/clientManagerUtils';
+
 
 const loading = ref(false);
-const dialogLoading = ref(false);
 const available = ref(true);
 const unavailableReason = ref('');
 const savingClient = ref<ClientName | ''>('');
 const backingUpClient = ref<ClientName | ''>('');
 const deletingBackupId = ref<number | null>(null);
 const restoringBackupId = ref<number | null>(null);
-const renamingBackupId = ref<number | null>(null);
 const clients = ref<ClientConfigStatus[]>([]);
 const activeClient = ref<ClientName | ''>('');
 const users = ref<User[]>([]);
 const models = ref<Model[]>([]);
 const vendors = ref<Vendor[]>([]);
-const vendorModels = ref<VendorModel[]>([]);
 const vendorPresetUrls = ref<Record<string, Record<string, string>>>({});
-const selectedClient = ref<ClientConfigStatus | null>(null);
+
 const configDialogVisible = ref(false);
+const configDialogMode = ref<'create' | 'edit' | 'detail'>('create');
+const configDialogClient = ref<ClientConfigStatus | null>(null);
+const configDialogBackup = ref<ClientConfigBackupInfo | null>(null);
+const configDialogDefaultUrl = ref('');
+
 const renameDialogVisible = ref(false);
-const detailDialogVisible = ref(false);
-const detailConfig = ref<CurrentClientConfig | null>(null);
-const detailClient = ref<ClientConfigStatus | null>(null);
-const detailClientName = ref('');
-const detailConfigName = ref('');
-
-const configForm = reactive<{
-    client: ClientName | '';
-    connectionMode: ClientConnectionMode;
-    protocol: ApiFormat;
-    gatewayUrl: string;
-    upstreamUrl: string;
-    userId: number | null;
-    vendorId: number | null;
-    model: string;
-    upstreamModel: string;
-    effortLevel?: string;
-    apiKey?: string;
-}>({
-    client: '',
-    connectionMode: ClientConnectionMode.GATEWAY,
-    protocol: ApiFormat.ANTHROPIC,
-    gatewayUrl: '',
-    upstreamUrl: '',
-    userId: null,
-    vendorId: null,
-    model: '',
-    upstreamModel: '',
-    effortLevel: undefined,
-    apiKey: undefined,
-});
-
-const editingBackupId = ref<number | null>(null);
-
-const renameForm = reactive<{
-    client: ClientName | '';
-    backupId: number | null;
-    name: string;
-}>({
-    client: '',
-    backupId: null,
+const renameForm = reactive({
+    client: ClientName.CLAUDE_CODE as ClientName,
+    backupId: 0,
     name: '',
 });
 
-
-
-const clientProtocolLabels: Record<ClientName, string> = {
-    [ClientName.CLAUDE_CODE]: 'Anthropic',
-    [ClientName.CODEX]: 'OpenAI Responses',
-};
-
-const enabledModels = computed(() => models.value.filter(model => model.enable));
-const selectedProtocolLabel = computed(() => selectedClient.value ? clientProtocolLabels[selectedClient.value.client] : '');
-const detailProtocolLabel = computed(() => detailClient.value ? clientProtocolLabels[detailClient.value.client] : '');
-const detailMatchedVendor = computed(() => detailConfig.value?.matchedVendorId ? findVendor(detailConfig.value.matchedVendorId) : undefined);
-const configDialogTitle = computed(() => selectedClient.value ? `配置 ${selectedClient.value.displayName}` : '配置客户端');
-const detailDialogTitle = computed(() => detailConfigName.value ? `配置详情：${detailConfigName.value}` : '配置详情');
 
 onMounted(() => {
     void loadStatus();
@@ -687,84 +325,17 @@ async function loadStatus(): Promise<void> {
     }
 }
 
-watch(clients, (items) => {
-    if (!items.some(item => item.client === activeClient.value)) {
-        activeClient.value = items[0]?.client || '';
-    }
-});
-
-async function openConfigDialog(client: ClientConfigStatus, backup?: ClientConfigBackupInfo): Promise<void> {
-    selectedClient.value = client;
-    editingBackupId.value = backup?.id || null;
-    configForm.client = client.client;
-    configDialogVisible.value = true;
-
-    await loadDialogOptions();
-
-    if (backup && backup.config) {
-        configForm.connectionMode = backup.config.connectionMode;
-        configForm.protocol = client.protocol;
-        configForm.effortLevel = backup.config.effortLevel;
-        configForm.apiKey = backup.config.apiKey;
-
-        if (backup.config.connectionMode === ClientConnectionMode.GATEWAY) {
-            configForm.gatewayUrl = backup.config.gatewayUrl;
-            configForm.model = backup.config.model;
-            if (backup.config.gatewayUser) {
-                const userId = backup.config.gatewayUser.id;
-                if (users.value.some(u => u.id === userId)) {
-                    configForm.userId = userId;
-                } else {
-                    configForm.userId = null;
-                }
-            } else {
-                // Fallback to token parsing if gatewayUser is not set (for older configs)
-                const tokenStr = backup.config.apiKey || '';
-                const match = tokenStr.match(/^u-(\d+)-/);
-                if (match && match[1]) {
-                    const userId = parseInt(match[1], 10);
-                    if (users.value.some(u => u.id === userId)) {
-                        configForm.userId = userId;
-                    } else {
-                        configForm.userId = null;
-                    }
-                } else {
-                    configForm.userId = null;
-                }
-            }
-        } else {
-            configForm.upstreamUrl = backup.config.gatewayUrl;
-            configForm.upstreamModel = backup.config.model;
-            configForm.vendorId = null;
-        }
-    } else {
-        configForm.connectionMode = ClientConnectionMode.GATEWAY;
-        configForm.protocol = client.protocol;
-        configForm.gatewayUrl = getDefaultGatewayUrl(client);
-        configForm.upstreamUrl = '';
-        configForm.userId = null;
-        configForm.vendorId = null;
-        configForm.model = '';
-        configForm.upstreamModel = '';
-        configForm.effortLevel = undefined;
-        configForm.apiKey = undefined;
-
-        const activeUser = users.value.find(user => user.status === 'active');
-        if (activeUser) {
-            configForm.userId = activeUser.id;
-        }
-
-        const firstModel = enabledModels.value[0];
-        if (firstModel) {
-            configForm.model = firstModel.name;
-        }
-
-        const firstVendor = vendors.value[0];
-        if (firstVendor) {
-            configForm.vendorId = firstVendor.id;
-            await updateVendorDefaults();
-        }
-    }
+async function loadDialogOptions(): Promise<void> {
+    const [userResult, modelResult, vendorResult, presetUrls] = await Promise.all([
+        listUsers({ pageSize: 1000 }),
+        listModels({ pageSize: 1000 }),
+        listVendors({ pageSize: 1000 }),
+        getVendorPresetUrls(),
+    ]);
+    users.value = normalizeListResponse(userResult).list;
+    models.value = normalizeListResponse(modelResult).list;
+    vendors.value = normalizeListResponse(vendorResult).list;
+    vendorPresetUrls.value = presetUrls;
 }
 
 function getDefaultGatewayUrl(client?: ClientConfigStatus): string {
@@ -777,292 +348,86 @@ function getDefaultGatewayUrl(client?: ClientConfigStatus): string {
     } else {
         url = window.location.origin.replace('://localhost', '://127.0.0.1');
     }
-
     if (client && client.defaultGatewaySuffix) {
         return `${url}${client.defaultGatewaySuffix}`;
     }
     return url;
 }
 
-async function loadDialogOptions(): Promise<void> {
-    dialogLoading.value = true;
-    try {
-        const [userResult, modelResult, vendorResult, presetUrls] = await Promise.all([
-            listUsers({ pageSize: 1000 }),
-            listModels({ pageSize: 1000 }),
-            listVendors({ pageSize: 1000 }),
-            getVendorPresetUrls(),
-        ]);
-        users.value = normalizeListResponse(userResult).list;
-        models.value = normalizeListResponse(modelResult).list;
-        vendors.value = normalizeListResponse(vendorResult).list;
-        vendorPresetUrls.value = presetUrls;
-    } finally {
-        dialogLoading.value = false;
-    }
+async function openConfigDialog(client: ClientConfigStatus, backup?: ClientConfigBackupInfo, mode: 'create' | 'edit' | 'detail' = 'create'): Promise<void> {
+    await loadDialogOptions();
+    configDialogClient.value = client;
+    configDialogBackup.value = backup || null;
+    configDialogMode.value = mode;
+    configDialogDefaultUrl.value = getDefaultGatewayUrl(client);
+    configDialogVisible.value = true;
 }
 
-async function submitConfig(): Promise<void> {
-    if (!configForm.client) {
-        return;
-    }
+async function handleConfigSave(request: any): Promise<void> {
+    const client = configDialogClient.value;
+    if (!client) return;
 
-    const request = buildApplyRequest();
-    if (!request) return;
+    const backup = configDialogBackup.value;
 
-    const target = selectedClient.value;
-    if (target && target.backupCount < 1) {
-        const shouldContinue = await confirmInitialBackup(target);
-        if (!shouldContinue) {
-            return;
-        }
-    }
-
-    savingClient.value = configForm.client;
-    try {
-        let status: ClientConfigStatus;
-        if (editingBackupId.value !== null) {
-            status = await updateClientConfigBackup({ ...request, backupId: editingBackupId.value });
-        } else {
-            status = await createClientConfig(request);
-        }
+    if (backup) {
+        const status = await updateClientConfigBackup({
+            client: request.client,
+            backupId: backup.id,
+            ...request,
+        });
         updateClientStatus(status);
-        configDialogVisible.value = false;
-        message.success(editingBackupId.value !== null ? '配置已修改' : `${status.displayName} 配置已创建`);
-    } finally {
-        savingClient.value = '';
-        editingBackupId.value = null;
+        message.success('配置已更新');
+    } else {
+        if (client.backupCount < 1) {
+            const shouldContinue = await confirmInitialBackup(client);
+            if (!shouldContinue) return;
+        }
+        savingClient.value = request.client;
+        try {
+            const backup = await createClientConfigBackup({
+                client: request.client,
+                ...request,
+            });
+            addBackup(backup);
+            message.success('配置已创建');
+        } finally {
+            savingClient.value = '';
+        }
     }
+    configDialogVisible.value = false;
 }
 
 function confirmInitialBackup(client: ClientConfigStatus): Promise<boolean> {
     return new Promise((resolve) => {
         Modal.confirm({
-            title: `先保存 ${client.displayName} 当前配置？`,
-            content: '当前客户端还没有保存过配置。建议先保存当前配置，后续可以从已保存配置中切换回来。',
-            okText: '保存并继续',
-            cancelText: '暂不配置',
+            title: '创建配置备份',
+            content: `${client.displayName} 当前没有配置备份。是否先备份当前配置？`,
+            okText: '备份并继续',
+            cancelText: '直接创建',
             async onOk() {
-                try {
-                    await backupCurrentConfig(client.client, false);
-                    resolve(true);
-                } catch (error) {
-                    resolve(false);
-                    throw error;
-                }
+                await backupCurrentConfig(client.client, false);
+                resolve(true);
             },
             onCancel() {
-                resolve(false);
+                resolve(true);
             },
         });
     });
 }
 
-function buildApplyRequest() {
-    if (!configForm.client) return null;
 
-    if (configForm.connectionMode === ClientConnectionMode.OFFICIAL) {
-        return {
-            client: configForm.client,
-            connectionMode: ClientConnectionMode.OFFICIAL,
-            gatewayUrl: '',
-            apiKey: '',
-            model: '',
-        };
-    }
-
-    if (configForm.connectionMode === ClientConnectionMode.GATEWAY) {
-        const user = users.value.find(item => item.id === configForm.userId);
-        if (!user) {
-            message.error('请选择用户');
-            return null;
-        }
-
-        if (!configForm.model) {
-            message.error('请选择模型');
-            return null;
-        }
-
-        if (!configForm.gatewayUrl.trim()) {
-            message.error('请输入服务端地址');
-            return null;
-        }
-
-        return {
-            client: configForm.client,
-            connectionMode: ClientConnectionMode.GATEWAY,
-            gatewayUrl: configForm.gatewayUrl,
-            apiKey: user.token,
-            model: configForm.model,
-            effortLevel: configForm.effortLevel,
-        };
-    }
-
-    const vendor = vendors.value.find(item => item.id === configForm.vendorId);
-    if (!vendor) {
-        message.error('请选择供应商');
-        return null;
-    }
-
-    if (!configForm.upstreamModel) {
-        message.error('请选择供应商模型');
-        return null;
-    }
-
-    if (!configForm.upstreamUrl.trim()) {
-        message.error('当前供应商没有配置该协议的服务端地址');
-        return null;
-    }
-
-    return {
-        client: configForm.client,
-        connectionMode: ClientConnectionMode.VENDOR,
-        gatewayUrl: configForm.upstreamUrl,
-        apiKey: vendor.token,
-        model: configForm.upstreamModel,
-        effortLevel: configForm.effortLevel,
-    };
+function openRenameDialog(client: ClientName, backup: ClientConfigBackupInfo): void {
+    renameForm.client = client;
+    renameForm.backupId = backup.id;
+    renameForm.name = backup.name;
+    renameDialogVisible.value = true;
 }
 
-function filterSelectOption(input: string, option: any): boolean {
-    return String(option?.label ?? option?.children ?? '').toLowerCase().includes(input.toLowerCase());
+function handleRename(backup: any): void {
+    updateBackupInfo(backup);
+    renameDialogVisible.value = false;
 }
 
-async function handleConnectionModeChange(mode: string): Promise<void> {
-    configForm.connectionMode = mode as ClientConnectionMode;
-    if (configForm.connectionMode === ClientConnectionMode.VENDOR) {
-        await updateVendorDefaults();
-    }
-}
-
-async function handleVendorChange(): Promise<void> {
-    await updateVendorDefaults();
-}
-
-async function updateVendorDefaults(): Promise<void> {
-    const vendor = vendors.value.find(item => item.id === configForm.vendorId);
-    if (!vendor) {
-        vendorModels.value = [];
-        configForm.upstreamUrl = '';
-        configForm.upstreamModel = '';
-        return;
-    }
-
-    configForm.upstreamUrl = getVendorUrl(vendor, configForm.protocol);
-    await loadSelectedVendorModels(vendor.id);
-}
-
-async function loadSelectedVendorModels(vendorId: number): Promise<void> {
-    vendorModels.value = await listVendorModels(vendorId);
-    configForm.upstreamModel = vendorModels.value[0]?.model_id || '';
-}
-
-function getVendorUrl(vendor: Vendor, protocol: ApiFormat): string {
-    const presetUrls = vendorPresetUrls.value[vendor.type] || {};
-    const urls = { ...presetUrls, ...vendor.urls };
-
-    if (protocol === ApiFormat.RESPONSES) {
-        return urls.responses || urls.openai || '';
-    }
-
-    return urls.anthropic || '';
-}
-
-function findUser(id: number): User | undefined {
-    return users.value.find(user => user.id === id);
-}
-
-function findVendor(id: number): Vendor | undefined {
-    return vendors.value.find(vendor => vendor.id === id);
-}
-
-function getUserTypeLabel(type?: UserType): string {
-    if (type === 'admin') return '管理员';
-    if (type === 'root') return 'Root';
-    return '普通用户';
-}
-
-function getUserTypeColor(type?: UserType): string {
-    if (type === 'admin') return 'blue';
-    if (type === 'root') return 'purple';
-    return 'default';
-}
-
-function getConnectionModeLabel(mode?: ClientConnectionMode): string {
-    if (mode === ClientConnectionMode.GATEWAY) return '代理模式';
-    if (mode === ClientConnectionMode.VENDOR) return '直连模式';
-    if (mode === ClientConnectionMode.OFFICIAL) return '直连官方';
-    return '未配置';
-}
-
-function getConnectionModeColor(mode?: ClientConnectionMode): string {
-    if (mode === ClientConnectionMode.GATEWAY) return 'blue';
-    if (mode === ClientConnectionMode.VENDOR) return 'green';
-    if (mode === ClientConnectionMode.OFFICIAL) return 'purple';
-    return 'default';
-}
-
-function isGatewayConfig(config?: CurrentClientConfig | null): boolean {
-    return config?.connectionMode === ClientConnectionMode.GATEWAY;
-}
-
-
-
-function getVendorTypeLabel(type?: VendorType): string {
-    if (!type) return '';
-    const labels: Record<VendorType, string> = {
-        aliyun: 'Aliyun (通义千问)',
-        aliyun_coding: 'Aliyun Coding',
-        volcengine_coding: 'Volcengine Coding',
-        deepseek: 'DeepSeek',
-        mimo: 'Mimo',
-        mimo_token_plan: 'Mimo Token Plan',
-        opencode_go: 'OpenCode Go',
-        openai: 'OpenAI',
-        anthropic: 'Anthropic',
-        google: 'Google',
-        other: 'Other',
-    };
-    return labels[type] || type;
-}
-
-function getVendorTypeColor(type?: VendorType): string {
-    if (!type) return 'default';
-    const colors: Record<VendorType, string> = {
-        aliyun: 'orange',
-        aliyun_coding: 'orange',
-        volcengine_coding: 'purple',
-        deepseek: '',
-        mimo: 'blue',
-        mimo_token_plan: 'blue',
-        opencode_go: 'cyan',
-        openai: 'green',
-        anthropic: 'orange',
-        google: '',
-        other: 'default',
-    };
-    return colors[type] || 'default';
-}
-
-function getVendorTypeTagStyle(type?: VendorType) {
-    if (type === 'deepseek' || type === 'google') {
-        return {
-            color: 'var(--accent-primary)',
-            backgroundColor: 'var(--accent-primary-soft)',
-            borderColor: 'var(--accent-primary-border)',
-        };
-    }
-    return undefined;
-}
-
-async function openDetailDialog(client: ClientConfigStatus, config: CurrentClientConfig | null, name: string): Promise<void> {
-    await loadDialogOptions();
-    detailClient.value = client;
-    detailClientName.value = client.displayName;
-    detailConfigName.value = name;
-    detailConfig.value = config;
-    detailDialogVisible.value = true;
-}
 
 async function backupCurrentConfig(client: ClientName, showSuccess = true): Promise<void> {
     const target = clients.value.find(item => item.client === client);
@@ -1074,47 +439,11 @@ async function backupCurrentConfig(client: ClientName, showSuccess = true): Prom
         target.backups = [backup, ...target.backups];
         target.backupCount = target.backups.length;
         target.backupExists = target.backupCount > 0;
-        if (selectedClient.value?.client === client) {
-            selectedClient.value = target;
-        }
         if (showSuccess) {
             message.success(`${target.displayName} 已从本地配置新建`);
         }
     } finally {
         backingUpClient.value = '';
-    }
-}
-
-function openRenameDialog(client: ClientName, backup: ClientConfigBackupInfo): void {
-    renameForm.client = client;
-    renameForm.backupId = backup.id;
-    renameForm.name = backup.name;
-    renameDialogVisible.value = true;
-}
-
-async function submitRenameConfig(): Promise<void> {
-    if (!renameForm.client || !renameForm.backupId) {
-        return;
-    }
-
-    const name = renameForm.name.trim();
-    if (!name) {
-        message.error('请输入配置名称');
-        return;
-    }
-
-    renamingBackupId.value = renameForm.backupId;
-    try {
-        const backup = await renameClientConfigBackup({
-            client: renameForm.client,
-            backupId: renameForm.backupId,
-            name,
-        });
-        updateBackupInfo(backup);
-        renameDialogVisible.value = false;
-        message.success('配置名称已修改');
-    } finally {
-        renamingBackupId.value = null;
     }
 }
 
@@ -1139,7 +468,6 @@ function deleteConfig(client: ClientName, backup: ClientConfigBackupInfo): void 
         },
     });
 }
-
 
 function applyConfig(client: ClientName, backupId?: number): void {
     const target = clients.value.find(item => item.client === client);
@@ -1168,8 +496,6 @@ function applyConfig(client: ClientName, backupId?: number): void {
     });
 }
 
-
-
 function updateClientStatus(status: ClientConfigStatus): void {
     const index = clients.value.findIndex(item => item.client === status.client);
     if (index >= 0) {
@@ -1182,11 +508,16 @@ function updateClientStatus(status: ClientConfigStatus): void {
 function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     const client = clients.value.find(item => item.client === backup.client);
     const index = client?.backups.findIndex(item => item.id === backup.id) ?? -1;
-    if (!client || index < 0) {
-        return;
-    }
-
+    if (!client || index < 0) return;
     client.backups[index] = backup;
+}
+
+function addBackup(backup: ClientConfigBackupInfo): void {
+    const client = clients.value.find(item => item.client === backup.client);
+    if (!client) return;
+    client.backups.push(backup);
+    client.backupCount = client.backups.length;
+    client.backupExists = true;
 }
 </script>
 
@@ -1271,19 +602,6 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     color: var(--text-primary);
 }
 
-.config-path {
-    color: var(--text-secondary, #8c8c8c);
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 12px;
-    word-break: break-all;
-}
-
-.config-path-list {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-}
-
 .config-row-list {
     display: grid;
     gap: 10px;
@@ -1310,78 +628,51 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     border: 0;
     cursor: pointer;
     display: inline-flex;
-    height: 32px;
+    height: 20px;
     justify-content: center;
-    margin: -6px;
-    padding: 6px;
-    width: 32px;
-}
-
-.check-state-button:disabled {
-    cursor: default;
+    padding: 0;
+    width: 20px;
 }
 
 .empty-check-circle {
-    appearance: none;
-    background-color: #fff;
-    border: 0;
-    cursor: pointer;
-}
-
-.empty-check-circle::before {
-    background-color: #fff;
-    border: 1px solid #d9d9d9;
+    border: 2px solid var(--border-color, #d9d9d9);
     border-radius: 50%;
-    content: "";
-    display: block;
-    width: 20px;
-    height: 20px;
-    transition: all 0.3s;
+    transition: border-color 0.2s;
 }
 
-.empty-check-circle:hover::before {
-    border-color: #1677ff;
+.empty-check-circle:hover {
+    border-color: var(--accent-primary, #1677ff);
 }
 
 .checked-check-button {
-    color: #1677ff;
-}
-
-.config-row-name {
-    color: var(--text-primary);
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.config-row-name-with-action {
-    align-items: center;
-    display: inline-flex;
-    gap: 4px;
-    min-width: 0;
-}
-
-.rename-button {
-    color: var(--text-secondary, #8c8c8c);
-    flex-shrink: 0;
+    color: var(--accent-primary, #1677ff);
 }
 
 .current-config-icon {
-    color: #1677ff;
     font-size: 20px;
-    flex-shrink: 0;
 }
 
 .config-row-content {
-    display: grid;
-    gap: 8px;
     min-width: 0;
 }
 
-.config-row-actions {
+.config-row-name {
+    align-items: center;
     display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    white-space: nowrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.config-row-name > span {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.current-config-tag {
+    font-size: 11px;
+    line-height: 18px;
+    padding: 0 6px;
 }
 
 .config-summary-line {
@@ -1391,17 +682,31 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     gap: 8px;
 }
 
-.config-line {
-    display: flex;
+.config-flow {
     align-items: center;
-    gap: 10px;
-    min-width: 0;
+    display: inline-flex;
+    gap: 6px;
 }
 
-.config-label {
+.flow-arrow {
     color: var(--text-secondary, #8c8c8c);
-    flex: 0 0 42px;
     font-size: 12px;
+}
+
+.flow-logo {
+    height: 16px;
+    width: 16px;
+}
+
+.model-text {
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.merged-mode-tag {
+    font-size: 12px;
+    line-height: 18px;
+    padding: 0 8px;
 }
 
 .config-muted {
@@ -1409,120 +714,22 @@ function updateBackupInfo(backup: ClientConfigBackupInfo): void {
     font-size: 13px;
 }
 
-.config-flow {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-secondary, #8c8c8c);
-    background: var(--bg-color-secondary, #fafafa);
-    padding: 2px 8px 2px 2px;
-    border-radius: 6px;
-    font-size: 13px;
-    border: 1px solid var(--border-color, #f0f0f0);
-}
-
-.merged-mode-tag {
-    margin-right: 2px;
-    border-radius: 4px;
-    border-color: transparent;
-}
-
-.model-text {
-    color: var(--text-primary, #262626);
-    font-weight: 500;
-}
-
-.flow-arrow {
-    font-size: 10px;
-    color: #bfbfbf;
-}
-
-.flow-logo {
-    width: 14px;
-    height: 14px;
-}
-
-
-.client-message {
-    margin-top: 8px;
-    color: var(--accent-danger, #cf1322);
-    font-size: 13px;
-}
-
-.empty-state {
-    margin-top: 36px;
+.config-row-actions {
+    display: flex;
+    gap: 4px;
 }
 
 .config-empty-state {
     padding: 24px 0;
 }
 
-.config-form {
-    padding-top: 8px;
-}
-
-.readonly-config-form :deep(.ant-form-item) {
-    margin-bottom: 14px;
-}
-
-.readonly-field {
-    align-items: center;
-    background: var(--bg-layout, #f5f5f5);
-    border: 1px solid var(--border-color, #d9d9d9);
-    border-radius: 6px;
-    display: flex;
-    min-height: 32px;
-    padding: 4px 11px;
-}
-
-.form-label-with-help {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.label-help-icon {
+.client-message {
     color: var(--text-secondary, #8c8c8c);
-    cursor: help;
-    font-size: 13px;
+    font-size: 12px;
+    margin-top: 8px;
 }
 
-.select-option-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
-.selected-option {
-    line-height: 1;
-}
-
-.select-option-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.select-tag {
-    margin: 0;
-    flex-shrink: 0;
-}
-
-@media (max-width: 760px) {
-    .client-manager {
-        padding: 16px;
-    }
-
-    .config-row {
-        align-items: stretch;
-        grid-template-columns: 1fr;
-        gap: 10px;
-    }
-
-    .config-row-actions {
-        justify-content: flex-start;
-    }
+.empty-state {
+    padding: 48px 0;
 }
 </style>

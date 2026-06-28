@@ -126,7 +126,7 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     receivedHeaders = {};
     for (const [key, value] of Object.entries(req.headers)) {
         if (value) {
-            receivedHeaders[key] = value;
+            receivedHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
         }
     }
     const headersMsg = `[MOCK] Received headers: ${JSON.stringify(receivedHeaders)}`;

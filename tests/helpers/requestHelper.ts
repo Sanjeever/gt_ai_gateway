@@ -1,4 +1,4 @@
-import { fetch } from "undici";
+import { fetch, Headers } from "undici";
 
 /**
  * Get server config dynamically to respect TEST_MODE at runtime
@@ -14,8 +14,10 @@ async function getServerConfig() {
  * Provides convenient methods for making HTTP requests to the test server
  */
 
-interface RequestOptions extends RequestInit {
+interface RequestOptions {
+    method?: string;
     headers?: Record<string, string>;
+    body?: string;
 }
 
 interface RequestResponse {
@@ -44,7 +46,7 @@ async function request(
     const response = await fetch(url, {
         ...options,
         headers,
-    });
+    } as any);
 
     const body = await response.text();
     const parsedBody = body ? tryParseJSON(body) : body;

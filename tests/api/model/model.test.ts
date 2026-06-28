@@ -159,10 +159,10 @@ describe("Model API (Positive)", () => {
         it("should create an enabled model by default", async () => {
             const modelData = modelFixtures.createRandomModel(openaiVendorId);
             // 不传 enable 字段
-            delete modelData.enable;
+            const { enable: _, ...dataWithoutEnable } = modelData;
             const response = await requestHelper.post(
                 "/model/create.json",
-                modelData,
+                dataWithoutEnable,
                 adminToken,
             );
 
