@@ -141,7 +141,7 @@ const routes: RouteRecordRaw[] = [
                 meta: { title: '接入配置' },
             },
             {
-                path: 'client-manager',
+                path: 'client-manager/:tab?',
                 name: 'ClientManager',
                 component: ClientManager,
                 meta: { title: '客户端管理' },

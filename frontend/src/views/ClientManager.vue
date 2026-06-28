@@ -255,6 +255,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { message, Modal } from 'ant-design-vue/es';
 import { ArrowRightOutlined, CheckCircleFilled, DeleteOutlined, EditOutlined, ImportOutlined, InfoCircleOutlined, ReloadOutlined, PlusOutlined, SyncOutlined } from '@ant-design/icons-vue';
 import {
@@ -298,6 +299,8 @@ const deletingBackupId = ref<number | null>(null);
 const restoringBackupId = ref<number | null>(null);
 const clients = ref<ClientConfigStatus[]>([]);
 const activeClient = ref<ClientName | ''>('');
+const route = useRoute();
+const router = useRouter();
 const users = ref<User[]>([]);
 const models = ref<Model[]>([]);
 const vendors = ref<Vendor[]>([]);
@@ -326,8 +329,16 @@ watch(configDialogVisible, (isOpen) => {
     if (!isOpen) configDialogLocalConfig.value = null;
 });
 
+watch(activeClient, (val) => {
+    if (val && val !== route.params.tab) {
+        router.replace({ name: 'ClientManager', params: { tab: val } });
+    }
+});
+
 
 onMounted(() => {
+    const tabParam = route.params.tab;
+    if (tabParam && typeof tabParam === 'string') activeClient.value = tabParam as ClientName;
     void loadStatus();
 });
 
@@ -340,7 +351,8 @@ async function loadStatus(): Promise<void> {
         clients.value = response.clients;
         const firstClient = response.clients[0];
         if (!activeClient.value && firstClient) {
-            activeClient.value = firstClient.client;
+            const tabParam = route.params.tab;
+            activeClient.value = (tabParam && typeof tabParam === 'string' ? tabParam : firstClient.client) as ClientName;
         }
     } finally {
         loading.value = false;
