@@ -232,7 +232,7 @@
             >
                 <a-select
                     v-model:value="form.effortLevel"
-                    placeholder="选择思考强度"
+                    :placeholder="isDetail ? '未设置' : '选择思考强度'"
                     allow-clear
                     :disabled="isDetail"
                 >

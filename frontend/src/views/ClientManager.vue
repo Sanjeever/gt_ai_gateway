@@ -52,7 +52,7 @@
                                         :loading="backingUpClient === client.client"
                                         @click="importFromLocal(client)"
                                     >
-                                        <CopyOutlined /> 从本地配置导入
+                                        <ImportOutlined /> 从本地配置导入
                                     </a-button>
                                     <a-button
                                         type="primary"
@@ -248,7 +248,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue';
 import { message, Modal } from 'ant-design-vue/es';
-import { ArrowRightOutlined, CheckCircleFilled, CopyOutlined, DeleteOutlined, EditOutlined, InfoCircleOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue';
+import { ArrowRightOutlined, CheckCircleFilled, DeleteOutlined, EditOutlined, ImportOutlined, InfoCircleOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import {
     applyClientConfig,
     createClientConfigBackup,
