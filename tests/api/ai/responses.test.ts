@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { randomUUID } from "crypto";
 import requestHelper from "../../helpers/requestHelper";
 import mockHelper from "../../helpers/mockHelper";
 import modelFixtures from "../../fixtures/modelFixtures";
 import dbHelper from "../../helpers/dbHelper";
 import { setupAdminUser } from "../../globalSetup";
 import config from "../../config";
-import streamLogHelper from "../../helpers/streamLogHelper";
+import upstreamCaptureHelper from "../../helpers/upstreamCaptureHelper";
 
 /**
  * OpenAI Responses API Endpoint Tests
@@ -19,6 +20,23 @@ let responsesModelName: string;
 let responsesErrorModelId: number;
 let responsesErrorModelName: string;
 let adminToken: string;
+
+
+function createUniqueInput(prefix: string): string {
+    return `${prefix}-${randomUUID()}`;
+}
+
+
+async function setResponsesPromptCacheKeyEnabled(enabled: boolean): Promise<void> {
+    const response = await requestHelper.put(
+        "/config.json",
+        { responses_prompt_cache_key_enabled: enabled ? "true" : "false" },
+        adminToken,
+    );
+
+    expect(response.status).toBe(200);
+}
+
 
 describe("AI Responses API", () => {
     beforeAll(async () => {
@@ -74,19 +92,12 @@ describe("AI Responses API", () => {
         responsesErrorModelId = errorModelResponse.body.id;
     });
 
-    afterAll(async () => {
-        if (!adminToken) return;
-        await requestHelper.put(
-            "/config.json",
-            { responses_prompt_cache_key_enabled: false },
-            adminToken,
-        );
-    });
-
     describe("POST /llm/v1/responses", () => {
         it("should handle non-streaming responses request", async () => {
+            const input = createUniqueInput("responses-non-stream");
             const req = mockHelper.generateResponsesRequest({
                 model: responsesModelName,
+                input,
                 stream: false,
                 cached_tokens: 4,
             });
@@ -122,22 +133,18 @@ describe("AI Responses API", () => {
             expect(usageR1.completion_tokens).toBeGreaterThan(0);
             expect(usageR1.cache_read_tokens).toBe(4);
 
-            if (config.TEST_MODE === "node" && process.env.STREAM_LOG_ENABLED === "true") {
-                const requestLog = await streamLogHelper.readRequestLog(record.id);
-                const upstreamReq = JSON.parse(requestLog);
-                expect(upstreamReq.prompt_cache_key).toBeUndefined();
-            }
+            const upstreamRequests = await upstreamCaptureHelper.waitForRequestsByInput(input);
+            expect(upstreamRequests).toHaveLength(1);
+            expect(upstreamRequests[0].json?.prompt_cache_key).toMatch(/^[0-9a-f]{8}:.+/);
         }, 30000);
 
         it("should handle streaming responses request", async () => {
-            await requestHelper.put(
-                "/config.json",
-                { responses_prompt_cache_key_enabled: true },
-                adminToken,
-            );
+            await setResponsesPromptCacheKeyEnabled(true);
 
+            const input = createUniqueInput("responses-stream");
             const req = mockHelper.generateResponsesRequest({
                 model: responsesModelName,
+                input,
                 stream: true,
                 cached_tokens: 4,
             });
@@ -169,21 +176,16 @@ describe("AI Responses API", () => {
             expect(usageR2.completion_tokens).toBeGreaterThan(0);
             expect(usageR2.cache_read_tokens).toBe(4);
 
-            if (config.TEST_MODE === "node" && process.env.STREAM_LOG_ENABLED === "true") {
-                const streamLog = await streamLogHelper.readStreamLog(record.id);
-                expect(streamLog).toContain("response.created");
-                expect(streamLog).toContain("response.output_text.delta");
-                expect(streamLog).toContain("response.completed");
-
-                const requestLog = await streamLogHelper.readRequestLog(record.id);
-                const upstreamReq = JSON.parse(requestLog);
-                expect(upstreamReq.prompt_cache_key).toMatch(/^[0-9a-f]{8}:.+/);
-            }
+            const upstreamRequests = await upstreamCaptureHelper.waitForRequestsByInput(input);
+            expect(upstreamRequests).toHaveLength(1);
+            expect(upstreamRequests[0].json?.prompt_cache_key).toMatch(/^[0-9a-f]{8}:.+/);
         }, 30000);
 
         it("should pass through Responses upstream 400 response", async () => {
+            const input = createUniqueInput("responses-error");
             const req = mockHelper.generateResponsesRequest({
                 model: responsesErrorModelName,
+                input,
                 stream: false,
             });
 
@@ -208,6 +210,33 @@ describe("AI Responses API", () => {
             expect(record.model_id).toBe(responsesErrorModelId);
             expect(record.status).toBe("failed");
             expect(JSON.parse(record.response_data)).toEqual(response.body);
+        }, 30000);
+
+        it("should omit prompt_cache_key when Responses prompt cache key is disabled", async () => {
+            const input = createUniqueInput("responses-cache-disabled");
+            await setResponsesPromptCacheKeyEnabled(false);
+
+            try {
+                const req = mockHelper.generateResponsesRequest({
+                    model: responsesModelName,
+                    input,
+                    stream: false,
+                });
+
+                const response = await requestHelper.post(
+                    "/llm/v1/responses",
+                    req,
+                    testUserToken,
+                );
+
+                expect(response.status).toBe(200);
+
+                const upstreamRequests = await upstreamCaptureHelper.waitForRequestsByInput(input);
+                expect(upstreamRequests).toHaveLength(1);
+                expect(upstreamRequests[0].json?.prompt_cache_key).toBeUndefined();
+            } finally {
+                await setResponsesPromptCacheKeyEnabled(true);
+            }
         }, 30000);
     });
 });

@@ -12,6 +12,17 @@ let isRunning = false;
  */
 let receivedHeaders: Record<string, string> = {};
 
+interface CapturedRequest {
+    method: string;
+    url: string;
+    headers: Record<string, string>;
+    body: string;
+    json: any | null;
+    receivedAt: string;
+}
+
+let capturedRequests: CapturedRequest[] = [];
+
 /**
  * Mock server log stream
  */
@@ -116,6 +127,59 @@ function isMockServerRunning(): boolean {
     return isRunning;
 }
 
+
+function normalizeHeaders(headers: IncomingMessage["headers"]): Record<string, string> {
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers)) {
+        if (value) {
+            normalized[key] = Array.isArray(value) ? value.join(", ") : value;
+        }
+    }
+    return normalized;
+}
+
+
+function captureRequest(
+    req: IncomingMessage,
+    body: string,
+    json: any | null,
+): void {
+    capturedRequests.push({
+        method: req.method || "",
+        url: req.url || "",
+        headers: normalizeHeaders(req.headers),
+        body,
+        json,
+        receivedAt: new Date().toISOString(),
+    });
+
+    if (capturedRequests.length > 500) {
+        capturedRequests = capturedRequests.slice(-500);
+    }
+}
+
+
+function handleTestRequest(
+    url: string,
+    req: IncomingMessage,
+    res: ServerResponse,
+): boolean {
+    if (!url.startsWith("/_test/requests")) {
+        return false;
+    }
+
+    if (req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(capturedRequests));
+        return true;
+    }
+
+    res.writeHead(405, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Method not allowed" }));
+    return true;
+}
+
+
 /**
  * Handle incoming requests
  */
@@ -148,6 +212,10 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
     if (req.method === "OPTIONS") {
         res.writeHead(200);
         res.end();
+        return;
+    }
+
+    if (handleTestRequest(url, req, res)) {
         return;
     }
 
@@ -488,6 +556,7 @@ function handleOpenAIResponses(req: IncomingMessage, res: ServerResponse): void 
     req.on("end", () => {
         try {
             const data = body ? JSON.parse(body) : {};
+            captureRequest(req, body, data);
             const isStream = data.stream === true;
 
             if (isStream) {
@@ -512,6 +581,7 @@ function handleResponsesError(req: IncomingMessage, res: ServerResponse): void {
     req.on("end", () => {
         try {
             const data = body ? JSON.parse(body) : {};
+            captureRequest(req, body, data);
             res.writeHead(400, { "Content-Type": "application/json" });
             res.end(JSON.stringify({
                 error: {
@@ -1137,6 +1207,7 @@ function handleResponsesStreamIncomplete(req: IncomingMessage, res: ServerRespon
     req.on("data", (chunk) => { body += chunk.toString(); });
     req.on("end", () => {
         const data = body ? JSON.parse(body) : {};
+        captureRequest(req, body, data);
         const respId = `resp_mock_${Date.now()}`;
         const now = Math.floor(Date.now() / 1000);
         const model = data.model || "gpt-4o";
@@ -1259,6 +1330,7 @@ function handleResponsesStreamSlow(req: IncomingMessage, res: ServerResponse): v
     req.on("data", (chunk) => { body += chunk.toString(); });
     req.on("end", () => {
         const data = body ? JSON.parse(body) : {};
+        captureRequest(req, body, data);
         const respId = `resp_mock_${Date.now()}`;
         const now = Math.floor(Date.now() / 1000);
         const model = data.model || "gpt-4o";
