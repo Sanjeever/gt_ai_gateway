@@ -92,6 +92,38 @@ describe("normalizeUsage", () => {
 });
 
 
+describe("buildStreamUsageAccounting", () => {
+    it("stores OpenAI-compatible streamed cache reads as separate record input tokens", () => {
+        const accounting = senderService.buildStreamUsageAccounting(
+            ApiFormat.OPENAI,
+            {
+                prompt_tokens: 53067,
+                completion_tokens: 262,
+                cache_read_tokens: 52864,
+            },
+            {
+                prices: {
+                    input: 0.002,
+                    cache_read: 0.0002,
+                    output: 0.01,
+                },
+            } as any,
+        );
+
+        expect(accounting.usageJson).not.toBeNull();
+        expect(JSON.parse(accounting.usageJson!)).toMatchObject({
+            prompt_tokens: 203,
+            completion_tokens: 262,
+            cache_read_tokens: 52864,
+        });
+        expect(accounting.cost).toBeCloseTo(
+            ((203 * 0.002) + (52864 * 0.0002) + (262 * 0.01)) / 1000,
+            12,
+        );
+    });
+});
+
+
 describe("isResponsesOutputStartedEvent", () => {
     it("treats function call and reasoning deltas as output start events", () => {
         expect(senderService.isResponsesOutputStartedEvent("response.output_text.delta")).toBe(true);

@@ -142,6 +142,33 @@ function isResponsesOutputStartedEvent(eventType: string): boolean {
 }
 
 
+function buildStreamUsageAccounting(format: ApiFormat, usage: Dict | null | undefined, model: SgModel) {
+    if (!usage) return { usageJson: null, cost: 0 };
+
+    if (format === ApiFormat.OPENAI) {
+        const normalizedUsage = normalizeUsage(ApiFormat.OPENAI, usage);
+        const cost = normalizedUsage
+            ? calculateCost(model, normalizedUsage.promptTokens, normalizedUsage.outputTokens, normalizedUsage.cacheReadTokens)
+            : 0;
+
+        return {
+            usageJson: normalizedUsage ? JSON.stringify(normalizedUsage.recordUsage) : null,
+            cost,
+        };
+    }
+
+    const promptTokens = (usage.prompt_tokens as number | undefined) ?? 0;
+    const outputTokens = (usage.completion_tokens as number | undefined) ?? 0;
+    const cacheReadTokens = (usage.cache_read_tokens as number | undefined) ?? 0;
+    const cost = calculateCost(model, promptTokens + cacheReadTokens, outputTokens, cacheReadTokens);
+
+    return {
+        usageJson: JSON.stringify(usage),
+        cost,
+    };
+}
+
+
 async function prepareStreamLog(record: SgRecord): Promise<WriteStream | null> {
     const isStreamLogEnabled = ormService.isNode && process.env.STREAM_LOG_ENABLED === "true";
 
@@ -329,25 +356,22 @@ async function handleStreamResponse(
                 // 流结束，保存完整响应到数据库
                 const fullResponse = accumulator.getResponse();
                 const usage = fullResponse.usage;
-                const promptTokens = usage?.prompt_tokens ?? 0;
-                const outputTokens = usage?.completion_tokens ?? 0;
-                const cacheReadTokens = usage?.cache_read_tokens ?? 0;
-                const cost = calculateCost(model, promptTokens + cacheReadTokens, outputTokens, cacheReadTokens);
+                const usageAccounting = buildStreamUsageAccounting(format, usage, model);
 
                 await recordService.update(record.id, {
                     response_data: JSON.stringify(fullResponse),
                     status: SgRecordStatus.SUCCESS,
-                    usage: usage ? JSON.stringify(usage) : null,
+                    usage: usageAccounting.usageJson,
                     first_token_latency: firstTokenTime !== null
                         ? firstTokenTime - record.created_at.getTime()
                         : null,
                     end_at: new Date(),
-                    cost: cost,
+                    cost: usageAccounting.cost,
                 });
 
                 // 扣除用户余额（仅非 Root 用户）
                 if (user.type !== "root") {
-                    await userService.deductBalance(user.id, cost);
+                    await userService.deductBalance(user.id, usageAccounting.cost);
                 }
             } else {
                 await recordService.update(record.id, {
@@ -886,6 +910,7 @@ async function sendRequest(
 
 
 export default {
+    buildStreamUsageAccounting,
     isResponsesOutputStartedEvent,
     normalizeUsage,
     resolveUpstreamFormat,
