@@ -253,6 +253,32 @@ describe("ResponsesToAnthropicConverter - convertRequest", () => {
         });
     });
 
+    it("should filter out non-function tools (web_search, image_generation) that have no name", () => {
+        const req: ResponsesRequest = {
+            model: "gpt-4.1",
+            input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Hello" }] }],
+            tools: [
+                {
+                    type: "function",
+                    name: "get_weather",
+                    description: "Get weather",
+                    parameters: { type: "object", properties: {} },
+                },
+                {
+                    type: "web_search",
+                } as any,
+                {
+                    type: "image_generation",
+                } as any,
+            ],
+        };
+
+        const result = converter.convertRequest(req);
+
+        expect(result.tools).toHaveLength(1);
+        expect(result.tools![0].name).toBe("get_weather");
+    });
+
     it("should convert tool_choice auto to Anthropic format", () => {
         const req: ResponsesRequest = {
             model: "gpt-4.1",

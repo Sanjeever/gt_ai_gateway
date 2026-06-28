@@ -87,13 +87,15 @@ export class ResponsesToAnthropicConverter extends BaseConverter {
             anthropicReq.top_p = req.top_p;
         }
 
-        // tools
+        // tools（过滤掉 web_search、image_generation 等无 name 的非 function 工具）
         if (req.tools && req.tools.length > 0) {
-            anthropicReq.tools = req.tools.map((t) => ({
-                name: t.name,
-                description: t.description,
-                input_schema: t.parameters || {},
-            }));
+            anthropicReq.tools = req.tools
+                .filter((t) => !!t.name)
+                .map((t) => ({
+                    name: t.name!,
+                    description: t.description,
+                    input_schema: t.parameters || {},
+                }));
         }
 
         // tool_choice
