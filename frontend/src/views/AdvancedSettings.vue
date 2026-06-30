@@ -10,6 +10,18 @@
                 <div class="settings-list">
                     <div class="setting-item">
                         <div class="setting-info">
+                            <div class="setting-title">屏蔽 Claude Code 跟踪</div>
+                            <div class="setting-desc">启用后，系统会自动清洗 Claude Code 发送的隐藏时间戳标记，避免污染用户真实数据与缓存特征</div>
+                        </div>
+                        <div class="setting-action">
+                            <a-switch
+                                v-model:checked="form.claude_code_tracking_rewrite_enabled"
+                                :disabled="saving"
+                            />
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
                             <div class="setting-title">强制改写 CCH</div>
                             <div class="setting-desc">启用后，系统会自动修改 claudecode 请求体中的 cch 值为默认固定值，用于修复无法命中缓存问题</div>
                         </div>
@@ -102,16 +114,19 @@ const saving = ref(false);
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
     responses_prompt_cache_key_enabled: false,
+    claude_code_tracking_rewrite_enabled: true,
 });
 
 const form = reactive({
     cch_rewrite_enabled: false,
     responses_prompt_cache_key_enabled: false,
+    claude_code_tracking_rewrite_enabled: true,
 });
 
 const isDirty = computed(() => {
     return form.cch_rewrite_enabled !== originalConfig.cch_rewrite_enabled ||
-           form.responses_prompt_cache_key_enabled !== originalConfig.responses_prompt_cache_key_enabled;
+           form.responses_prompt_cache_key_enabled !== originalConfig.responses_prompt_cache_key_enabled ||
+           form.claude_code_tracking_rewrite_enabled !== originalConfig.claude_code_tracking_rewrite_enabled;
 });
 
 onMounted(() => {
@@ -127,6 +142,9 @@ async function loadConfig(): Promise<void> {
         
         form.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
         originalConfig.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
+        
+        form.claude_code_tracking_rewrite_enabled = config.claude_code_tracking_rewrite_enabled !== "false"; // Default to true
+        originalConfig.claude_code_tracking_rewrite_enabled = config.claude_code_tracking_rewrite_enabled !== "false";
         if (!appStore.version) {
             appStore.fetchVersion();
         }
@@ -138,6 +156,7 @@ async function loadConfig(): Promise<void> {
 function cancelChanges() {
     form.cch_rewrite_enabled = originalConfig.cch_rewrite_enabled;
     form.responses_prompt_cache_key_enabled = originalConfig.responses_prompt_cache_key_enabled;
+    form.claude_code_tracking_rewrite_enabled = originalConfig.claude_code_tracking_rewrite_enabled;
 }
 
 async function doCheckUpdate() {
@@ -172,20 +191,18 @@ async function openUpdateUrl() {
     await openUrl(updateUrl.value);
 }
 
-async function saveConfig(): Promise<void> {
+async function saveConfig() {
     saving.value = true;
     try {
-        const config = await updateConfig({
+        await updateConfig({
             cch_rewrite_enabled: form.cch_rewrite_enabled ? "true" : "false",
             responses_prompt_cache_key_enabled: form.responses_prompt_cache_key_enabled ? "true" : "false",
+            claude_code_tracking_rewrite_enabled: form.claude_code_tracking_rewrite_enabled ? "true" : "false",
         });
-        
-        form.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
-        originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
-        
-        form.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
-        originalConfig.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
-        message.success('设置已保存');
+        message.success('配置已保存');
+        originalConfig.cch_rewrite_enabled = form.cch_rewrite_enabled;
+        originalConfig.responses_prompt_cache_key_enabled = form.responses_prompt_cache_key_enabled;
+        originalConfig.claude_code_tracking_rewrite_enabled = form.claude_code_tracking_rewrite_enabled;
     } catch {
         // error handling is typically done by the request interceptor
     } finally {

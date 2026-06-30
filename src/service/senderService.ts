@@ -17,8 +17,7 @@ import { getLogDir } from "../util/logger";
 import userService from "./userService";
 import customError from "../util/customError";
 import { ConverterFactory } from "../util/protocolConverter/ConverterFactory";
-import { rewriteCchInSystemPrompt } from "../plugin/cchRewriter";
-import { injectResponsesPromptCacheKey } from "../plugin/responsesPromptCacheKeyRewriter";
+import pluginService from "./pluginService";
 import type { BaseConverter } from "../util/protocolConverter/BaseConverter";
 import type { ProtocolStreamEvent } from "../util/protocolConverter/protocolTypes";
 import sseEvent from "../util/sseEvent";
@@ -830,10 +829,9 @@ async function sendRequest(
         }
     }
 
-    // 4. 请求体改写：根据高级设置将 system 中 x-anthropic-billing-header 的 cch 值固定为 A1234
-    if ((await configService.getConfig(ConfigKey.CCH_REWRITE_ENABLED, "true")).getBoolean()) {
-        upstreamBody = rewriteCchInSystemPrompt(upstreamBody);
-    }
+    // 4. 应用插件 (转换前)
+    const hostKey = await hostService.getHostKey();
+    upstreamBody = await pluginService.applyRequestPlugins(upstreamBody, format, hostKey, user.name);
 
     let converter: BaseConverter | null = null;
     if (needsConversion) {
@@ -868,9 +866,9 @@ async function sendRequest(
         }
     }
 
-    if (upstreamFormat === ApiFormat.RESPONSES && (await configService.getConfig(ConfigKey.RESPONSES_PROMPT_CACHE_KEY_ENABLED, "true")).getBoolean()) {
-        const hostKey = await hostService.getHostKey();
-        upstreamBody = injectResponsesPromptCacheKey(upstreamBody, hostKey, user.name);
+    // 6. 应用插件 (转换后)
+    if (needsConversion) {
+        upstreamBody = await pluginService.applyRequestPlugins(upstreamBody, upstreamFormat, hostKey, user.name);
     }
 
     await writeRequestLog(record, upstreamBody);
