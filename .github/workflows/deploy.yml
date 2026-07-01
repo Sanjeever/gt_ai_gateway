@@ -34,11 +34,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ROOT_TOKEN: ${{ secrets.ROOT_TOKEN }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not set in GitHub Secrets. Please follow the deployment guide to configure them."
-            exit 1
-          fi
-          
-          # The deploy script will automatically create the database if needed, 
-          # run migrations, and deploy the worker.
+          # The deploy script will verify environment variables, token permissions, 
+          # create the database if needed, run migrations, and deploy the worker.
           npm run deploy:cloudflare -- --auto-create-db --auto-migrate --auto-create-root-token

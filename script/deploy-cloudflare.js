@@ -325,7 +325,71 @@ function syncSubmodules() {
     run("git", ["submodule", "update", "--init", "--recursive"], { env: gitHttpsRewriteEnv });
 }
 
+function checkEnvironmentVariables() {
+    console.log("Verifying environment variables...");
+    const missing = [];
+    if (!process.env.CLOUDFLARE_API_TOKEN) missing.push("CLOUDFLARE_API_TOKEN");
+    if (!process.env.CLOUDFLARE_ACCOUNT_ID) missing.push("CLOUDFLARE_ACCOUNT_ID");
+    if (!process.env.ROOT_TOKEN) missing.push("ROOT_TOKEN");
+
+    if (missing.length > 0) {
+        console.error("\n==========================================");
+        console.error(" ❌ [ERROR] MISSING ENVIRONMENT VARIABLES ❌");
+        console.error("==========================================");
+        console.error(`The following required variables are missing: ${missing.join(", ")}`);
+        console.error("Please configure them in GitHub Secrets and re-run the pipeline.");
+        console.error("==========================================\n");
+        process.exit(1);
+    }
+    console.log("✅ All required environment variables are present.");
+}
+
+function verifyTokenPermissions() {
+    console.log("Verifying Cloudflare API Token permissions...");
+    try {
+        const output = runAndCapture("npx", ["wrangler", "whoami"]);
+        
+        const requiredPermissions = [
+            { name: "Worker Scripts", check: (out) => out.includes("Worker Scripts: Edit") || out.includes("Workers Scripts: Edit") },
+            { name: "D1", check: (out) => out.includes("D1: Edit") },
+            { name: "Workers KV Storage", check: (out) => out.includes("KV Storage: Edit") }
+        ];
+        
+        const missingPermissions = [];
+        
+        for (const p of requiredPermissions) {
+            if (!p.check(output)) {
+                missingPermissions.push(p.name);
+            }
+        }
+        
+        if (missingPermissions.length > 0) {
+            console.error("\n==========================================");
+            console.error(" ❌ [ERROR] INSUFFICIENT TOKEN PERMISSIONS ❌");
+            console.error("==========================================");
+            console.error(`Your CLOUDFLARE_API_TOKEN is missing the following permissions:`);
+            missingPermissions.forEach(p => console.error(`  - Account | ${p} | Edit`));
+            console.error("\nPlease go to Cloudflare Dashboard -> My Profile -> API Tokens,");
+            console.error("and edit your token to ensure it has 'Edit' access for these permissions.");
+            console.error("==========================================\n");
+            process.exit(1);
+        }
+        
+        console.log("✅ API Token permissions verified.");
+    } catch (err) {
+        console.error("\n==========================================");
+        console.error(" ❌ [ERROR] INVALID CLOUDFLARE_API_TOKEN ❌");
+        console.error("==========================================");
+        console.error("Failed to verify API Token. Please ensure your token is correct.");
+        console.error("Error details:", err.message);
+        console.error("==========================================\n");
+        process.exit(1);
+    }
+}
+
 try {
+    checkEnvironmentVariables();
+    verifyTokenPermissions();
     runDeploySetup();
     syncSubmodules();
     run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
