@@ -112,10 +112,13 @@ class SgVendor extends Model {
     }
 
     /**
-     * 获取当前 vendor 的认证模式，默认为 bearer_token
+     * 获取当前 vendor 的认证模式，未配置时默认为 bearer_token
      */
     getAuthMode(): VendorAuthMode {
         const config = this.getConfig();
+        if (!config.auth_mode) {
+            return VendorAuthMode.BEARER_TOKEN;
+        }
         return config.auth_mode === VendorAuthMode.API_KEY
             ? VendorAuthMode.API_KEY
             : VendorAuthMode.BEARER_TOKEN;
