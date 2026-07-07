@@ -6,6 +6,8 @@ import Database from "better-sqlite3";
 
 const args = process.argv.slice(2);
 export const MIGRATION_DIR = process.env.MIGRATION_DIR || join(process.cwd(), "resource", "migrate");
+export const MIGRATION_START_MARKER = "[GT_AI_GATEWAY_MIGRATION_START]";
+export const MIGRATION_END_MARKER = "[GT_AI_GATEWAY_MIGRATION_END]";
 const LOCAL_DB_PATH = process.env.DB_PATH || join(process.cwd(), "local.db");
 const TMP_DIR = join(process.cwd(), ".tmp");
 
@@ -185,81 +187,91 @@ function getAdapter(env: string): DBAdapter {
 
 // 命令实现
 export async function migrate(adapter: DBAdapter, env: string) {
-    console.log(`Initializing migrations table in ${env}...`);
-    adapter.exec(
-        "CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL)",
-    );
+    console.log(`${MIGRATION_START_MARKER} env=${env}`);
+    let success = false;
 
-    console.log("Fetching applied migrations...");
-    let applied: Migration[] = [];
     try {
-        applied = adapter.query<Migration>(
-            "SELECT name FROM _migrations ORDER BY name",
+        console.log(`Initializing migrations table in ${env}...`);
+        adapter.exec(
+            "CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL)",
         );
-    } catch (e) {
-        console.log("Error fetching applied migrations, assuming empty.", e);
-    }
 
-    const appliedNames = new Set(applied.map((m) => m.name));
-
-    console.log("Scanning available migrations in", MIGRATION_DIR);
-    let available: string[] = [];
-    try {
-        available = readdirSync(MIGRATION_DIR).filter((f) =>
-            f.endsWith(".sql"),
-        );
-    } catch (e) {
-        console.warn(`Could not read migration directory: ${MIGRATION_DIR}`);
-    }
-
-    // 过滤并排序
-    const validFiles = available.filter((f) => /(\d{4})\.sql$/.test(f)).sort();
-
-    const pendingMigrations = validFiles.filter(
-        (name) => !appliedNames.has(name),
-    );
-
-    console.log(
-        `Applied: ${applied.length}, Available: ${validFiles.length}, Pending: ${pendingMigrations.length}`,
-    );
-
-    if (pendingMigrations.length === 0) {
-        console.log("Database is up to date.");
-        return;
-    }
-
-    for (const file of pendingMigrations) {
-        console.log(`\nApplying migration: ${file}...`);
-        const sqlPath = join(MIGRATION_DIR, file);
-        const sql = readFileSync(sqlPath, "utf-8");
-
-        const insertRecord = `INSERT INTO _migrations (name) VALUES ('${file}')`;
-
+        console.log("Fetching applied migrations...");
+        let applied: Migration[] = [];
         try {
-            if (!adapter.execTransaction) {
-                // 把 migration SQL 和记录插入合并到一个临时文件，一次提交
-                mkdirSync(TMP_DIR, { recursive: true });
-                const tmpFile = join(TMP_DIR, `migration_${crypto.randomUUID()}.sql`);
-                writeFileSync(tmpFile, `${sql}\n${insertRecord};`, "utf-8");
-                let cmd = `npx wrangler d1 execute ${dbName} ${env === "worker-cloud" ? "--remote" : "--local"}`;
-                if (dbConfigPath) {
-                    cmd += ` --config ${dbConfigPath}`;
-                }
-                cmd += ` --file="${tmpFile}"`;
-                console.log(`> ${cmd}`);
-                execSync(cmd, { stdio: "inherit" });
-            } else {
-                // 用事务把 migration SQL 和记录插入打包执行
-                adapter.execTransaction!([sql, insertRecord]);
-            }
-            console.log(`✅ Successfully applied: ${file}`);
+            applied = adapter.query<Migration>(
+                "SELECT name FROM _migrations ORDER BY name",
+            );
         } catch (e) {
-            console.error(`❌ Failed to apply migration ${file}:`, e);
-            throw e;
+            console.log("Error fetching applied migrations, assuming empty.", e);
         }
-    }
 
-    console.log("\nAll pending migrations applied.");
+        const appliedNames = new Set(applied.map((m) => m.name));
+
+        console.log("Scanning available migrations in", MIGRATION_DIR);
+        let available: string[] = [];
+        try {
+            available = readdirSync(MIGRATION_DIR).filter((f) =>
+                f.endsWith(".sql"),
+            );
+        } catch (e) {
+            console.warn(`Could not read migration directory: ${MIGRATION_DIR}`);
+        }
+
+        // 过滤并排序
+        const validFiles = available.filter((f) => /(\d{4})\.sql$/.test(f)).sort();
+
+        const pendingMigrations = validFiles.filter(
+            (name) => !appliedNames.has(name),
+        );
+
+        console.log(
+            `Applied: ${applied.length}, Available: ${validFiles.length}, Pending: ${pendingMigrations.length}`,
+        );
+
+        if (pendingMigrations.length === 0) {
+            console.log("Database is up to date.");
+            success = true;
+            return;
+        }
+
+        for (const file of pendingMigrations) {
+            console.log(`\nApplying migration: ${file}...`);
+            const sqlPath = join(MIGRATION_DIR, file);
+            const sql = readFileSync(sqlPath, "utf-8");
+
+            const insertRecord = `INSERT INTO _migrations (name) VALUES ('${file}')`;
+
+            try {
+                if (!adapter.execTransaction) {
+                    // 把 migration SQL 和记录插入合并到一个临时文件，一次提交
+                    mkdirSync(TMP_DIR, { recursive: true });
+                    const tmpFile = join(TMP_DIR, `migration_${crypto.randomUUID()}.sql`);
+                    writeFileSync(tmpFile, `${sql}\n${insertRecord};`, "utf-8");
+                    let cmd = `npx wrangler d1 execute ${dbName} ${env === "worker-cloud" ? "--remote" : "--local"}`;
+                    if (dbConfigPath) {
+                        cmd += ` --config ${dbConfigPath}`;
+                    }
+                    cmd += ` --file="${tmpFile}"`;
+                    console.log(`> ${cmd}`);
+                    execSync(cmd, { stdio: "inherit" });
+                } else {
+                    // 用事务把 migration SQL 和记录插入打包执行
+                    adapter.execTransaction!([sql, insertRecord]);
+                }
+                console.log(`✅ Successfully applied: ${file}`);
+            } catch (e) {
+                console.error(`❌ Failed to apply migration ${file}:`, e);
+                throw e;
+            }
+        }
+
+        console.log("\nAll pending migrations applied.");
+        success = true;
+    } finally {
+        const status = success ? "success" : "failed";
+        console.log(`${MIGRATION_END_MARKER} env=${env} status=${status}`);
+    }
 }
 
 async function status(adapter: DBAdapter) {

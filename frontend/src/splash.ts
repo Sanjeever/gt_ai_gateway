@@ -1,11 +1,35 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
+const splashStartedAt = performance.now();
+const backendStartingText = '正在启动中...';
+const databaseMigratingText = '数据库升级中，请等待，不要关闭程序';
+
+function splashLog(message: string) {
+    const elapsedMs = Math.round(performance.now() - splashStartedAt);
+    const logMessage = `[splash +${elapsedMs}ms] ${message}`;
+    console.log(logMessage);
+    invoke('log_to_rust', { msg: logMessage }).catch((error) => {
+        console.warn('[splash] failed to send log to rust', error);
+    });
+}
+
+function waitForSplashPaint() {
+    return new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                resolve();
+            });
+        });
+    });
+}
+
 async function initSplash() {
     const loadingState = document.getElementById('loadingState')!;
     const errorState = document.getElementById('errorState')!;
     const btnExit = document.getElementById('btnExit')!;
     const errorText = document.getElementById('errorText')!;
+    const loadingText = document.getElementById('loadingText')!;
 
     let hasError = false;
 
@@ -24,6 +48,7 @@ async function initSplash() {
     };
 
     const showInitializationError = (message: string) => {
+        splashLog(`show initialization error: ${message}`);
         hasError = true;
         loadingState.style.display = 'none';
         errorState.style.display = 'flex';
@@ -31,6 +56,7 @@ async function initSplash() {
     };
 
     const showBackendError = (code: unknown) => {
+        splashLog(`show backend error: ${formatError(code)}`);
         hasError = true;
         loadingState.style.display = 'none';
         errorState.style.display = 'flex';
@@ -47,6 +73,11 @@ async function initSplash() {
     });
 
     try {
+        splashLog('show splash window');
+        await invoke('show_splash_window');
+        await waitForSplashPaint();
+
+        splashLog('start backend after splash paint');
         // Wait for the sidecar backend state reported by Rust. Do not probe HTTP
         // here: another local process may already be serving the configured port.
         const isReady = await new Promise<boolean>((resolve) => {
@@ -58,6 +89,7 @@ async function initSplash() {
 
             const finish = (result: boolean) => {
                 if (isResolved) return;
+                splashLog(`finish backend wait, result=${result}`);
                 isResolved = true;
                 if (timeoutId) {
                     clearTimeout(timeoutId);
@@ -78,6 +110,11 @@ async function initSplash() {
                 finish(false);
             };
 
+            const startBackend = async () => {
+                if (isResolved) return;
+                await invoke('start_backend');
+            };
+
             async function checkInitialBackendState() {
                 try {
                     await invoke('check_backend_status');
@@ -94,9 +131,18 @@ async function initSplash() {
                     const ready = await invoke<boolean>('is_backend_ready');
                     if (ready) {
                         finish(true);
+                        return;
                     }
                 } catch (error) {
                     finishWithInitializationError(`读取后端就绪状态失败：${formatError(error)}`);
+                    return;
+                }
+
+                try {
+                    const migrating = await invoke<boolean>('is_backend_migrating');
+                    loadingText.innerText = migrating ? databaseMigratingText : backendStartingText;
+                } catch (error) {
+                    finishWithInitializationError(`读取后端迁移状态失败：${formatError(error)}`);
                 }
             }
 
@@ -105,9 +151,21 @@ async function initSplash() {
             }, 15000);
 
             Promise.all([
-                listen('backend-ready', () => finish(true)),
+                listen('backend-ready', () => {
+                    splashLog('backend-ready event received');
+                    finish(true);
+                }),
                 listen('backend-error', (event) => {
+                    splashLog(`backend-error event received, payload=${formatError(event.payload)}`);
                     finishWithBackendError(event.payload);
+                }),
+                listen('backend-migration-start', () => {
+                    loadingText.innerText = databaseMigratingText;
+                    splashLog('backend migration started');
+                }),
+                listen('backend-migration-end', () => {
+                    loadingText.innerText = backendStartingText;
+                    splashLog('backend migration ended');
                 }),
             ])
                 .then((listeners) => {
@@ -119,6 +177,10 @@ async function initSplash() {
                             console.error(e);
                             finishWithInitializationError(`检查后端初始状态异常：${formatError(e)}`);
                         });
+                        startBackend().catch((e) => {
+                            console.error(e);
+                            finishWithInitializationError(`启动后端失败：${formatError(e)}`);
+                        });
                     }
                 })
                 .catch((e) => {
@@ -128,6 +190,7 @@ async function initSplash() {
         });
 
         if (hasError) {
+            splashLog('stop splash flow because error UI is shown');
             return; // Stop processing, error UI is shown
         }
 
@@ -145,6 +208,7 @@ async function initSplash() {
         await invoke('open_main_window');
 
     } catch (e: any) {
+        splashLog(`catch splash error: ${formatError(e)}`);
         if (!hasError) {
             loadingState.style.display = 'none';
             errorState.style.display = 'flex';
