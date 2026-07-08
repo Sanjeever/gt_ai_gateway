@@ -16,21 +16,23 @@ vi.mock("../../src/service/objectStorageService", () => ({
     },
 }));
 
-let recordPayloadEnabled = true;
-
 const configMocks = vi.hoisted(() => ({
     getConfig: vi.fn(),
+    setValue: vi.fn(),
+    getAll: vi.fn(),
+    clearCache: vi.fn(),
 }));
 
 vi.mock("../../src/service/configService", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../src/service/configService")>();
     return {
-        ...actual,
+        ConfigKey: actual.ConfigKey,
+        ConfigItem: actual.ConfigItem,
         default: {
             getConfig: configMocks.getConfig,
-            setValue: vi.fn(),
-            getAll: vi.fn(),
-            clearCache: vi.fn(),
+            setValue: configMocks.setValue,
+            getAll: configMocks.getAll,
+            clearCache: configMocks.clearCache,
         },
     };
 });
