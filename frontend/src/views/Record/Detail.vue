@@ -140,14 +140,20 @@
 
                         <a-tab-pane key="request_json" tab="请求数据 (JSON)">
                             <div class="json-pane-content">
-                                <div v-if="!recordStore.currentRecord.request_data" class="no-payload-hint">请求内容未记录</div>
+                                <div v-if="!recordStore.currentRecord.request_data" class="no-payload-hint">
+                                    <div class="no-payload-title">请求内容未记录</div>
+                                    <div class="no-payload-desc">如需记录请到设置中打开开关</div>
+                                </div>
                                 <JsonViewer v-else ref="requestJsonRef" :data="recordStore.currentRecord.request_data" :expanded="isRequestExpanded" />
                             </div>
                         </a-tab-pane>
 
                         <a-tab-pane key="response_json" tab="响应数据 (JSON)">
                             <div class="json-pane-content">
-                                <div v-if="!recordStore.currentRecord.response_data" class="no-payload-hint">响应内容未记录</div>
+                                <div v-if="!recordStore.currentRecord.response_data" class="no-payload-hint">
+                                    <div class="no-payload-title">响应内容未记录</div>
+                                    <div class="no-payload-desc">如需记录请到设置中打开开关</div>
+                                </div>
                                 <JsonViewer v-else ref="responseJsonRef" :data="recordStore.currentRecord.response_data" :expanded="isResponseExpanded" />
                             </div>
                         </a-tab-pane>
@@ -425,10 +431,20 @@ async function downloadJson(data: string | null, type: 'request' | 'response') {
 }
 
 .no-payload-hint {
-    padding: 24px 0;
+    padding: 32px 0;
     text-align: center;
-    color: var(--text-secondary, #999);
+}
+
+.no-payload-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary, #333);
+    margin-bottom: 8px;
+}
+
+.no-payload-desc {
     font-size: 13px;
+    color: var(--text-secondary, #999);
 }
 
 .token-item {
