@@ -11,6 +11,7 @@
 | **后端框架** | Hono + TypeScript | 轻量级 Web 框架 |
 | **运行时** | Cloudflare Workers / Node.js | 无服务器 / 本地运行 |
 | **数据库** | D1 (Cloudflare) / SQLite | 生产 / 开发环境 |
+| **对象存储** | R2 (Cloudflare) / `storage_record` 表 | 请求/响应原始载荷；生产 / 开发环境 |
 | **ORM** | Sutando | 统一数据库操作接口 |
 
 ## 后端项目结构
@@ -114,8 +115,8 @@ Wrangler 会启动本地开发服务器，模拟 Cloudflare Workers 环境
 | `npm run backend:dev:local` | Node 本地开发模式（watch 自动重启） |
 | `npm run backend:start` | Node 生产模式 |
 | `npm run deploy` | 部署到 Cloudflare Workers，部署前自动执行 D1 migrations，并在缺失时创建 ROOT_TOKEN |
-| `npm run deploy -- --auto-create-db` | 如果当前账号下没有可用 D1，则自动创建 D1 后部署 |
-| `npm run deploy:cloudflare` | 底层 Cloudflare 部署脚本；不带参数时要求 `wrangler.toml` 已配置 `database_id` |
+| `npm run deploy -- --auto-create-db --auto-create-r2` | 如果当前账号下没有可用 D1 / R2 桶，则自动创建后部署 |
+| `npm run deploy:cloudflare` | 底层 Cloudflare 部署脚本；不带参数时要求 `wrangler.toml` 已配置 `database_id` 和可用的 R2 桶 |
 | `npm run backend:test` | 运行后端测试 |
 
 ### 请求记录与流式日志
@@ -124,8 +125,10 @@ Wrangler 会启动本地开发服务器，模拟 Cloudflare Workers 环境
 
 1. **数据库请求记录**
    - 由 `src/service/recordService.ts` 负责创建和更新。
-   - 每次请求开始时会创建一条 `record` 记录，保存 `user_id`、`model_id`、`request_data`、状态、耗时和 token 统计等。
-   - 流式请求结束后，会把通过 `src/util/sseAccumulator.ts` 聚合出的完整响应写回 `response_data`。
+   - 每次请求开始时会创建一条 `record` 记录，保存 `user_id`、`model_id`、状态、耗时和 token 统计等元信息。
+   - 请求/响应的原始载荷（request body / response body）不存入 `record` 表，而是由 `src/service/objectStorageService.ts` 写入对象存储：Node 模式落库到 `storage_record` 表，Worker 模式写入 R2 桶（binding `OBJECT_BUCKET`）。对象 key 为 `record/{id}`，内容是 `{"request": <原始字符串>, "response": <原始字符串>}` 的组合 JSON。
+   - 流式请求结束后，聚合出的完整响应会通过 `recordService.update` 合并写回对象存储的 `.response` 字段。
+   - 读取记录详情时（`recordService.attachPayload`），再从对象存储把 `request`/`response` 挂回 record 实例的 `request_data`/`response_data` 虚拟字段返回给前端。
    - 若设置 `RECORD_LOG_ENABLED=true`，`recordService` 会额外打印创建和更新日志，方便本地调试。
 
 2. **流式原始日志文件**
@@ -136,8 +139,8 @@ Wrangler 会启动本地开发服务器，模拟 Cloudflare Workers 环境
      - SSE 分帧问题
      - 上游返回的真实事件顺序
      - `usage`、`finish_reason` 等字段的实际出现位置
-   - 该日志与数据库中的 `response_data` 不同：
-     - `response_data` 是聚合后的完整响应
+   - 该日志与对象存储中的 `response` 不同：
+     - 对象存储里的 `response` 是聚合后的完整响应
      - `log/stream/<record.id>.log` 是未聚合的原始流
 
 #### 本地目录说明
@@ -171,10 +174,10 @@ log/                      # 或 LOG_DIR 指定的目录
 
 ### 数据库类型
 
-| 环境 | 数据库 | 说明 |
-|------|--------|------|
-| **本地模式 (Node.js)** | SQLite (`better-sqlite3`) | 本地文件存储 |
-| **云端模式 (Cloudflare)** | Cloudflare D1 | 分布式 SQL 数据库 |
+| 环境 | 数据库 | 对象存储 | 说明 |
+|------|--------|----------|------|
+| **本地模式 (Node.js)** | SQLite (`better-sqlite3`) | `storage_record` 表 | 本地文件存储；载荷与元数据同在一个 SQLite |
+| **云端模式 (Cloudflare)** | Cloudflare D1 | Cloudflare R2 (`OBJECT_BUCKET`) | 元数据入 D1，请求/响应载荷入 R2，互不拖累 |
 
 ### 数据库管理工具
 

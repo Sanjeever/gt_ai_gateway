@@ -107,6 +107,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ROOT_TOKEN: ${{ secrets.ROOT_TOKEN }}
         run: |
-          # The deploy script will verify environment variables, token permissions, 
-          # create the database if needed, run migrations, and deploy the worker.
-          npm run deploy:cloudflare -- --auto-create-db --auto-migrate --auto-create-root-token
+          # The deploy script will verify environment variables, token permissions,
+          # create the database and R2 bucket if needed, run migrations, and deploy the worker.
+          npm run deploy:cloudflare -- --auto-create-db --auto-create-r2 --auto-migrate --auto-create-root-token

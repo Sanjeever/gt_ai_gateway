@@ -5,12 +5,13 @@ const fs = require("fs");
 const WRANGLER_CONFIG_PATH = "wrangler.toml";
 const DEFAULT_DATABASE_NAME = "gt_ai_gateway";
 const DEFAULT_D1_BINDING = "DB";
-const DEPLOY_SETUP_FLAGS = new Set(["--auto-create-db", "--auto-migrate", "--auto-create-root-token"]);
+const DEPLOY_SETUP_FLAGS = new Set(["--auto-create-db", "--auto-migrate", "--auto-create-root-token", "--auto-create-r2"]);
 
 const options = {
     autoCreateDb: false,
     migrate: false,
     autoRootToken: false,
+    autoCreateR2: false,
 };
 const wranglerArgs = [];
 
@@ -23,6 +24,7 @@ function printHelp() {
     console.log("");
     console.log("Options:");
     console.log("  --auto-create-db  Create the configured D1 database if no existing database can be resolved.");
+    console.log("  --auto-create-r2  Create the configured R2 bucket if it does not already exist.");
     console.log("  --auto-migrate    Apply D1 migrations before deploy.");
     console.log("  --auto-create-root-token Create ROOT_TOKEN if it does not already exist.");
     console.log("  --help, -h        Show this help message.");
@@ -43,6 +45,8 @@ for (const arg of process.argv.slice(2)) {
             options.migrate = true;
         } else if (arg === "--auto-create-root-token") {
             options.autoRootToken = true;
+        } else if (arg === "--auto-create-r2") {
+            options.autoCreateR2 = true;
         }
         continue;
     }
@@ -82,7 +86,7 @@ function runAndCapture(command, commandArgs) {
 }
 
 function hasDeploySetupFlags() {
-    return options.autoCreateDb || options.migrate || options.autoRootToken;
+    return options.autoCreateDb || options.migrate || options.autoRootToken || options.autoCreateR2;
 }
 
 function readWranglerConfig() {
@@ -208,6 +212,58 @@ function runMigrations(bindingName) {
     run("npm", migrateArgs);
 }
 
+function getConfiguredR2Binding() {
+    const toml = readWranglerConfig();
+    const r2Block = toml.match(/\[\[r2_buckets\]\]([\s\S]*?)(?:\n\[|$)/);
+    const bindingMatch = r2Block?.[1]?.match(/binding\s*=\s*"([^"]+)"/);
+    return bindingMatch?.[1] || null;
+}
+
+function getConfiguredR2BucketName() {
+    const toml = readWranglerConfig();
+    const r2Block = toml.match(/\[\[r2_buckets\]\]([\s\S]*?)(?:\n\[|$)/);
+    const nameMatch = r2Block?.[1]?.match(/bucket_name\s*=\s*"([^"]+)"/);
+    return nameMatch?.[1] || null;
+}
+
+function listR2Buckets() {
+    const list = runAndCapture("npx", ["wrangler", "r2", "bucket", "list", "--json"]);
+    return JSON.parse(list);
+}
+
+function findR2BucketByName(bucketName) {
+    return listR2Buckets().find((bucket) => bucket.name === bucketName);
+}
+
+function setupR2Bucket() {
+    const binding = getConfiguredR2Binding();
+    if (!binding) {
+        console.log("No R2 bucket binding configured in wrangler.toml; skipping R2 setup.");
+        return;
+    }
+
+    const bucketName = getConfiguredR2BucketName();
+    if (!bucketName) {
+        throw new Error(`R2 binding ${binding} is missing bucket_name in wrangler.toml`);
+    }
+
+    if (findR2BucketByName(bucketName)) {
+        console.log(`R2 bucket ${bucketName} already exists.`);
+        return;
+    }
+
+    if (!options.autoCreateR2) {
+        throw new Error(
+            `R2 bucket ${bucketName} was not found. ` +
+            "Pass --auto-create-r2 to create it automatically, or create it manually with: " +
+            `npx wrangler r2 bucket create ${bucketName}`,
+        );
+    }
+
+    console.log(`Creating R2 bucket ${bucketName}...`);
+    run("npx", ["wrangler", "r2", "bucket", "create", bucketName]);
+}
+
 function updateWranglerTomlDatabaseId(databaseId) {
     let tomlContent = readWranglerConfig();
     if (tomlContent.includes("replace-with-your-d1-database-id")) {
@@ -304,6 +360,7 @@ function runDeploySetup() {
 
     console.log("Running Cloudflare deploy setup...");
     setupDatabase();
+    setupR2Bucket();
     setupRootToken();
 }
 
