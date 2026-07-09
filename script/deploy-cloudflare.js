@@ -4,6 +4,8 @@ const fs = require("fs");
 
 const WRANGLER_CONFIG_PATH = "wrangler.toml";
 const DEFAULT_DATABASE_NAME = "gt_ai_gateway";
+const DEFAULT_R2_BUCKET_NAME = "gt_ai_gateway_objects";
+const DEFAULT_KV_NAMESPACE_NAME = "gt_ai_gateway_cache";
 const DEFAULT_D1_BINDING = "DB";
 const DEPLOY_SETUP_FLAGS = new Set(["--auto-create-db", "--auto-migrate", "--auto-create-root-token", "--auto-create-r2"]);
 
@@ -23,11 +25,16 @@ function printHelp() {
     console.log("  npm run deploy:cloudflare -- --auto-create-db --auto-migrate --auto-create-root-token");
     console.log("");
     console.log("Options:");
-    console.log("  --auto-create-db  Create the configured D1 database if no existing database can be resolved.");
-    console.log("  --auto-create-r2  Create the configured R2 bucket if it does not already exist.");
+    console.log("  --auto-create-db  Create the configured D1 database if it does not exist.");
+    console.log("  --auto-create-r2  Create the configured R2 bucket if it does not exist.");
     console.log("  --auto-migrate    Apply D1 migrations before deploy.");
     console.log("  --auto-create-root-token Create ROOT_TOKEN if it does not already exist.");
     console.log("  --help, -h        Show this help message.");
+    console.log("");
+    console.log("Environment variables (override wrangler.toml names):");
+    console.log("  CLOUDFLARE_D1_NAME   D1 database name (default: from wrangler.toml)");
+    console.log("  CLOUDFLARE_R2_NAME   R2 bucket name (default: from wrangler.toml)");
+    console.log("  CLOUDFLARE_KV_NAME   KV namespace name (default: from wrangler.toml)");
     console.log("");
     console.log("Unknown options are forwarded to `wrangler deploy`.");
 }
@@ -94,9 +101,7 @@ function readWranglerConfig() {
 }
 
 function getConfiguredDatabaseName() {
-    const toml = readWranglerConfig();
-    const match = toml.match(/database_name\s*=\s*"([^"]+)"/);
-    return match?.[1] || DEFAULT_DATABASE_NAME;
+    return process.env.CLOUDFLARE_D1_NAME || DEFAULT_DATABASE_NAME;
 }
 
 function getConfiguredWorkerName() {
@@ -119,58 +124,6 @@ function listDatabases() {
 
 function findDatabaseByName(databaseName) {
     return listDatabases().find((database) => database.name === databaseName);
-}
-
-function findDatabaseById(databaseId) {
-    try {
-        return listDatabases().find((database) =>
-            database.uuid === databaseId || database.id === databaseId
-        );
-    } catch (err) {
-        return null;
-    }
-}
-
-function getCurrentProductionVersionId(workerName) {
-    const args = ["wrangler", "deployments", "status", "--json"];
-    if (workerName) {
-        args.push("--name", workerName);
-    }
-
-    const status = JSON.parse(runAndCapture("npx", args));
-    const productionVersion = status.versions?.find((version) => version.percentage === 100) ||
-        status.versions?.[0];
-
-    return productionVersion?.version_id;
-}
-
-function getVersionBindings(workerName, versionId) {
-    const args = ["wrangler", "versions", "view", versionId, "--json"];
-    if (workerName) {
-        args.push("--name", workerName);
-    }
-
-    const version = JSON.parse(runAndCapture("npx", args));
-    return version.resources?.bindings || [];
-}
-
-function findDeployedD1Binding(bindingName) {
-    try {
-        const workerName = getConfiguredWorkerName();
-        const versionId = getCurrentProductionVersionId(workerName);
-
-        if (!versionId) {
-            return null;
-        }
-
-        const bindings = getVersionBindings(workerName, versionId);
-        return bindings.find((binding) =>
-            binding.type === "d1" && binding.name === bindingName
-        ) || null;
-    } catch (err) {
-        console.log("No existing deployed D1 binding found.");
-        return null;
-    }
 }
 
 function resolveConfiguredDatabase(databaseName) {
@@ -220,10 +173,7 @@ function getConfiguredR2Binding() {
 }
 
 function getConfiguredR2BucketName() {
-    const toml = readWranglerConfig();
-    const r2Block = toml.match(/\[\[r2_buckets\]\]([\s\S]*?)(?:\n\[|$)/);
-    const nameMatch = r2Block?.[1]?.match(/bucket_name\s*=\s*"([^"]+)"/);
-    return nameMatch?.[1] || null;
+    return process.env.CLOUDFLARE_R2_NAME || DEFAULT_R2_BUCKET_NAME;
 }
 
 function listR2Buckets() {
@@ -243,10 +193,6 @@ function setupR2Bucket() {
     }
 
     const bucketName = getConfiguredR2BucketName();
-    if (!bucketName) {
-        throw new Error(`R2 binding ${binding} is missing bucket_name in wrangler.toml`);
-    }
-
     if (findR2BucketByName(bucketName)) {
         console.log(`R2 bucket ${bucketName} already exists.`);
         return;
@@ -264,6 +210,36 @@ function setupR2Bucket() {
     run("npx", ["wrangler", "r2", "bucket", "create", bucketName]);
 }
 
+function getConfiguredKVBinding() {
+    const toml = readWranglerConfig();
+    const kvBlock = toml.match(/\[\[kv_namespaces\]\]([\s\S]*?)(?:\n\[|$)/);
+    const bindingMatch = kvBlock?.[1]?.match(/binding\s*=\s*"([^"]+)"/);
+    return bindingMatch?.[1] || null;
+}
+
+function getConfiguredKVNamespaceName() {
+    return process.env.CLOUDFLARE_KV_NAME || DEFAULT_KV_NAMESPACE_NAME;
+}
+
+function setupKVNamespace() {
+    const binding = getConfiguredKVBinding();
+    if (!binding) {
+        console.log("No KV namespace binding configured in wrangler.toml; skipping KV setup.");
+        return;
+    }
+
+    const namespaceId = getConfiguredKVNamespaceName();
+    if (namespaceId) {
+        console.log(`Using KV namespace for binding ${binding}: ${namespaceId}`);
+        return;
+    }
+
+    console.log(
+        `KV namespace binding ${binding} is configured but has no id. ` +
+        "Please create it manually with: npx wrangler kv namespace create <NAME>",
+    );
+}
+
 function updateWranglerTomlDatabaseId(databaseId) {
     let tomlContent = readWranglerConfig();
     if (tomlContent.includes("replace-with-your-d1-database-id")) {
@@ -275,24 +251,6 @@ function updateWranglerTomlDatabaseId(databaseId) {
 
 function setupDatabase() {
     const bindingName = getConfiguredD1Binding();
-    const deployedBinding = findDeployedD1Binding(bindingName);
-
-    if (deployedBinding) {
-        const databaseId = deployedBinding.database_id || deployedBinding.id;
-
-        if (!databaseId) {
-            throw new Error(`Deployed D1 binding ${bindingName} does not include a database_id`);
-        }
-
-        const database = findDatabaseById(databaseId);
-        const databaseLabel = database?.name || databaseId;
-        console.log(`Reusing deployed D1 binding ${bindingName}: ${databaseLabel}`);
-
-        updateWranglerTomlDatabaseId(databaseId);
-        runMigrations(bindingName);
-        return;
-    }
-
     const databaseName = getConfiguredDatabaseName();
 
     console.log(`Checking D1 database: ${databaseName}`);
@@ -320,7 +278,7 @@ function setupRootToken() {
     try {
         const secrets = runAndCapture("npx", ["wrangler", "secret", "list"]);
         const providedToken = process.env.ROOT_TOKEN;
-        
+
         if (secrets.includes("ROOT_TOKEN") && !providedToken) {
             console.log("ROOT_TOKEN already exists in Cloudflare.");
             return;
@@ -340,7 +298,7 @@ function setupRootToken() {
         }
 
         console.log("Setting custom ROOT_TOKEN from environment...");
-        
+
         run("npx", ["wrangler", "secret", "put", "ROOT_TOKEN"], {
             input: `${providedToken}\n`,
             stdio: ["pipe", "inherit", "inherit"],
@@ -361,6 +319,7 @@ function runDeploySetup() {
     console.log("Running Cloudflare deploy setup...");
     setupDatabase();
     setupR2Bucket();
+    setupKVNamespace();
     setupRootToken();
 }
 

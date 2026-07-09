@@ -16,7 +16,7 @@ database_id = "test-database-id"
 # Local R2 bucket for object storage tests (worker mode).
 [[r2_buckets]]
 binding = "OBJECT_BUCKET"
-bucket_name = "gt-ai-gateway-test-objects"
+bucket_name = "gt_ai_gateway_test_objects"
 
 [observability]
 enabled = true

@@ -238,7 +238,7 @@ DB_PATH=/path/to/your/custom.db
 
 ### Cloudflare Workers 部署
 有关如何将后端部署到 Cloudflare Workers 的详细步骤（包括 D1 数据库配置和一键部署），请参考专门的文档：
-👉 **[Cloudflare 部署文档](deploy/CloudflareDeployment.md)**
+👉 **[Cloudflare 自动部署文档](deploy/CloudflareAutoDeploy.md)**
 
 ### Docker 部署
 Docker 部署相关内容已单独整理，包括 Docker Compose 部署和独立运行等。请参考专门的文档：

@@ -8,8 +8,10 @@ compatibility_flags = [ "nodejs_compat", "no_handle_cross_request_promise_resolu
 [vars]
 # ROOT_TOKEN = "your-root-token-here"
 
+# KV namespace for caching (optional). Uncomment and set id to enable.
+# Override name via CLOUDFLARE_KV_NAME env var for auto-deploy.
 # [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
+# binding = "CACHE"
 # id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # [[r2_buckets]]
@@ -22,7 +24,7 @@ compatibility_flags = [ "nodejs_compat", "no_handle_cross_request_promise_resolu
 # and set bucket_name to match.
 [[r2_buckets]]
 binding = "OBJECT_BUCKET"
-bucket_name = "gt-ai-gateway-objects"
+bucket_name = "gt_ai_gateway_objects"
 
 [[d1_databases]]
 binding = "DB"
