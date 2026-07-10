@@ -176,13 +176,9 @@ function getConfiguredR2BucketName() {
     return process.env.CLOUDFLARE_R2_NAME || DEFAULT_R2_BUCKET_NAME;
 }
 
-function listR2Buckets() {
-    const list = runAndCapture("npx", ["wrangler", "r2", "bucket", "list", "--json"]);
-    return JSON.parse(list);
-}
-
 function findR2BucketByName(bucketName) {
-    return listR2Buckets().find((bucket) => bucket.name === bucketName);
+    const list = runAndCapture("npx", ["wrangler", "r2", "bucket", "list"]);
+    return list.includes(bucketName);
 }
 
 function setupR2Bucket() {
@@ -194,6 +190,7 @@ function setupR2Bucket() {
 
     const bucketName = getConfiguredR2BucketName();
     if (findR2BucketByName(bucketName)) {
+
         console.log(`R2 bucket ${bucketName} already exists.`);
         return;
     }
