@@ -19,17 +19,26 @@ class SgVendorConfig extends CastsAttributes {
     /** 是否跳过 TLS 证书验证（用于自签证书等内网环境） */
     skip_tls_verify: boolean = false;
 
+    /** 代理配置 */
+    proxy?: { type: "none" | "http" | "socks5"; url?: string };
+
     constructor(data?: Partial<SgVendorConfig>) {
         super();
         if (data) {
             if (data.auth_mode !== undefined) this.auth_mode = data.auth_mode;
             if (data.skip_tls_verify !== undefined) this.skip_tls_verify = data.skip_tls_verify;
+            if (data.proxy !== undefined) this.proxy = data.proxy;
         }
     }
 
     /** API 响应序列化（JSON.stringify 自动调用） */
     toJSON() {
-        return { auth_mode: this.auth_mode, skip_tls_verify: this.skip_tls_verify };
+        const result: Record<string, any> = {
+            auth_mode: this.auth_mode,
+            skip_tls_verify: this.skip_tls_verify,
+        };
+        if (this.proxy) result.proxy = this.proxy;
+        return result;
     }
 
     // ---- Sutando custom cast ----

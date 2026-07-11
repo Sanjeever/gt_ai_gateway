@@ -4,6 +4,7 @@ import { existsSync, unlinkSync, mkdirSync, createWriteStream } from "fs";
 import config from "./config";
 import dbHelper from "./helpers/dbHelper";
 import mockServer from "./helpers/mockServer";
+import mockProxy from "./helpers/mockProxyServer";
 import requestHelper from "./helpers/requestHelper";
 
 // Worker mode configuration
@@ -11,6 +12,7 @@ const TEST_WRANGLER_CONFIG = "wrangler.test.toml";
 
 let testServerProcess: ChildProcess | null = null;
 let mockServerProcess: any | null = null;
+let mockProxyProcess: any | null = null;
 let appLogStream: ReturnType<typeof createWriteStream> | null = null;
 let mockLogStream: ReturnType<typeof createWriteStream> | null = null;
 
@@ -24,6 +26,9 @@ function globalCleanup(): void {
     }
     if (mockServerProcess) {
         mockServer.stopMockServer(mockServerProcess);
+    }
+    if (mockProxyProcess) {
+        mockProxy.stopMockProxy(mockProxyProcess);
     }
 }
 
@@ -96,6 +101,11 @@ export async function setup(): Promise<void> {
         );
         mockServerProcess = await mockServer.startMockServer(parseInt(mockServerPort, 10));
         console.log("[GLOBAL_SETUP] Mock AI server started");
+
+        // 启动 mock HTTP 代理服务器（供代理相关测试使用）
+        const proxyPort = parseInt(process.env.TEST_PROXY_PORT || "9997", 10);
+        mockProxyProcess = await mockProxy.startMockProxy(proxyPort);
+        console.log("[GLOBAL_SETUP] Mock HTTP proxy started");
     }
 
     await startTestServer();
@@ -122,6 +132,12 @@ export async function teardown(): Promise<void> {
         await mockServer.stopMockServer(mockServerProcess);
         mockServerProcess = null;
         console.log("[GLOBAL_TEARDOWN] Mock AI server stopped");
+    }
+
+    if (mockProxyProcess) {
+        await mockProxy.stopMockProxy(mockProxyProcess);
+        mockProxyProcess = null;
+        console.log("[GLOBAL_TEARDOWN] Mock HTTP proxy stopped");
     }
 
     // Close log streams
