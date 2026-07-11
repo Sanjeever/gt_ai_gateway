@@ -190,7 +190,7 @@ async function sendRequest(
     let upstreamRes: Response;
     try {
         // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
-        const dispatcher = await fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
+        const dispatcher = await fetchUtil.getDispatcher(vendor.config);
         upstreamRes = await fetch(url, {
             method: "POST",
             headers: finalHeaders,

@@ -97,6 +97,18 @@
                             <a-select-option value="bearer_token">Bearer Token (Authorization)</a-select-option>
                         </a-select>
                     </div>
+                    <div class="advanced-row">
+                        <label class="advanced-label">代理配置</label>
+                        <a-select v-model:value="formState.proxy_type" style="flex: 1">
+                            <a-select-option value="none">不使用代理</a-select-option>
+                            <a-select-option value="http">HTTP 代理</a-select-option>
+                            <a-select-option value="socks5">SOCKS5 代理</a-select-option>
+                        </a-select>
+                    </div>
+                    <div class="advanced-row" v-if="formState.proxy_type !== 'none'">
+                        <label class="advanced-label">代理地址</label>
+                        <a-input v-model:value="formState.proxy_url" placeholder="http://host:port 或 socks5://user:pass@host:port" />
+                    </div>
                 </a-collapse-panel>
             </a-collapse>
         </a-form>
@@ -108,7 +120,7 @@ import { ref, reactive, computed, watch } from 'vue';
 import type { FormInstance } from 'ant-design-vue/es';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons-vue';
 import { createVendor } from '@/api/vendor';
-import type { CreateVendorRequest, Vendor, VendorType, VendorUrls, VendorAuthMode } from '@/types/vendor';
+import type { CreateVendorRequest, Vendor, VendorType, VendorUrls, VendorAuthMode, VendorProxyType } from '@/types/vendor';
 import { notifyRequestError, notifySuccess } from '@/utils/requestFeedback';
 import { useVendorPresets } from '@/composables/useVendorPresets';
 
@@ -134,6 +146,8 @@ const formState = reactive({
     name: '',
     token: '',
     auth_mode: 'api_key' as VendorAuthMode,
+    proxy_type: 'none' as VendorProxyType,
+    proxy_url: '',
 });
 
 const urlsMode = ref<'view' | 'edit'>('view');
@@ -177,6 +191,8 @@ function open() {
     formState.name = '';
     formState.token = '';
     formState.auth_mode = 'bearer_token';
+    formState.proxy_type = 'none';
+    formState.proxy_url = '';
     advancedActiveKey.value = [];
     urlsForm.splice(0, urlsForm.length);
     urlsMode.value = 'view';
@@ -207,7 +223,12 @@ async function handleOk() {
             type: formState.type,
             name: formState.name,
             token: formState.token,
-            config: { auth_mode: formState.auth_mode },
+            config: {
+                auth_mode: formState.auth_mode,
+                proxy: formState.proxy_type !== 'none'
+                    ? { type: formState.proxy_type, url: formState.proxy_url }
+                    : undefined,
+            },
         };
 
         // 只提交用户自定义的 URLs，后端对未定义的 key 回退到 preset

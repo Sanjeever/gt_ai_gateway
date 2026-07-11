@@ -4,6 +4,13 @@ export type VendorType = 'openai' | 'anthropic' | 'google' | 'aliyun' | 'aliyun_
 
 export type VendorAuthMode = 'api_key' | 'bearer_token';
 
+export type VendorProxyType = 'none' | 'http' | 'socks5';
+
+export interface VendorProxyConfig {
+    type: VendorProxyType;
+    url?: string;
+}
+
 export interface VendorUrls {
     [key: string]: string;
 }
@@ -11,6 +18,7 @@ export interface VendorUrls {
 export interface VendorConfig {
     auth_mode?: VendorAuthMode;
     skip_tls_verify?: boolean;
+    proxy?: VendorProxyConfig;
     [key: string]: any;
 }
 

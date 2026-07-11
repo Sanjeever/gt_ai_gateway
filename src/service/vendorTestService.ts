@@ -123,7 +123,7 @@ export async function testVendorConnectivity(
     try {
         console.log(`[testVendor] Testing vendor ${vendor.name} (${vendor.id}) with model ${model} at ${url}`);
         const startTime = Date.now();
-        const dispatcher = await fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
+        const dispatcher = await fetchUtil.getDispatcher(vendor.config);
         const response = await fetch(url, {
             method: "POST",
             headers,

@@ -53,6 +53,7 @@
     "hono": "^4.12.3",
     "knex-cloudflare-d1": "^0.1.1",
     "smol-toml": "^1.7.0",
+    "socks": "^2.8.9",
     "sutando": "^1.7.2",
     "tsx": "^4.20.0",
     "uuid": "^11.1.0"
