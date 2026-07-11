@@ -81,6 +81,23 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="settings-section" style="margin-top: 24px;">
+                        <h3 class="section-title">数据清理</h3>
+                        <div class="settings-list">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-title">删除请求数据</div>
+                                    <div class="setting-desc">清理历史请求记录，释放存储空间</div>
+                                </div>
+                                <div class="setting-action">
+                                    <a-button danger @click="showDeleteModal">
+                                        删除数据
+                                    </a-button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </a-tab-pane>
 
                 <!-- 系统 -->
@@ -143,6 +160,29 @@
                 </a-button>
             </div>
         </a-spin>
+
+        <!-- 删除数据弹窗 -->
+        <a-modal
+            v-model:open="deleteModalVisible"
+            title="删除请求数据"
+            :confirm-loading="deleting"
+            @ok="handleDeleteConfirm"
+        >
+            <a-radio-group v-model:value="deleteMode" style="display: flex; flex-direction: column; gap: 12px;">
+                <a-radio value="payload">
+                    <div>
+                        <div style="font-weight: 500;">删除请求体和响应体</div>
+                        <div style="font-size: 12px; color: #8c8c8c;">保留请求记录元数据（时间、模型、Token 等），仅清除 request/response 原始内容</div>
+                    </div>
+                </a-radio>
+                <a-radio value="all">
+                    <div>
+                        <div style="font-weight: 500;">删除所有请求记录</div>
+                        <div style="font-size: 12px; color: #8c8c8c;">彻底删除所有请求记录，此操作不可恢复</div>
+                    </div>
+                </a-radio>
+            </a-radio-group>
+        </a-modal>
     </div>
 </template>
 
@@ -151,6 +191,7 @@ import { onMounted, reactive, ref, computed } from 'vue';
 import { message } from 'ant-design-vue/es';
 import { getConfig, updateConfig } from '@/api/config';
 import { checkUpdate } from '@/api/system';
+import { clearPayload, clearAllRecords } from '@/api/record';
 import { useAppStore } from '@/stores/app';
 import { RunMode } from '@/types/system';
 
@@ -166,6 +207,10 @@ const latestVersion = ref('');
 const loading = ref(false);
 const saving = ref(false);
 const activeTab = ref('request');
+
+const deleteModalVisible = ref(false);
+const deleteMode = ref<'payload' | 'all'>('payload');
+const deleting = ref(false);
 
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
@@ -271,6 +316,29 @@ import { openUrl } from '@/utils/platform';
 
 async function openUpdateUrl() {
     await openUrl(updateUrl.value);
+}
+
+function showDeleteModal() {
+    deleteMode.value = 'payload';
+    deleteModalVisible.value = true;
+}
+
+async function handleDeleteConfirm() {
+    deleting.value = true;
+    try {
+        if (deleteMode.value === 'payload') {
+            const res = await clearPayload();
+            message.success(`已清除 ${res.cleared} 条记录的请求体和响应体`);
+        } else {
+            const res = await clearAllRecords();
+            message.success(`已删除 ${res.deleted} 条请求记录`);
+        }
+        deleteModalVisible.value = false;
+    } catch {
+        message.error('删除失败');
+    } finally {
+        deleting.value = false;
+    }
 }
 
 async function saveConfig() {

@@ -16,3 +16,11 @@ export function getRecord(id: number): Promise<Record> {
 export function deleteRecord(id: number): Promise<void> {
     return request.delete(`/record/${id}`);
 }
+
+export function clearPayload(): Promise<{ cleared: number }> {
+    return request.delete('/record/clear-payload');
+}
+
+export function clearAllRecords(): Promise<{ deleted: number }> {
+    return request.delete('/record/clear-all');
+}
