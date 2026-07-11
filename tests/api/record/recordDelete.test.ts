@@ -22,8 +22,7 @@ function insertTestRecord(): void {
 
 function insertTestStorageRecord(recordId: number): void {
     dbHelper.execute(
-        "INSERT INTO storage_record (object_key, size_bytes, data, created_at, updated_at) VALUES (?, 10, X'00', datetime('now'), datetime('now'))",
-        [`record/${recordId}`],
+        `INSERT INTO storage_record (object_key, size_bytes, data, created_at, updated_at) VALUES ('record/${recordId}', 10, X'00', datetime('now'), datetime('now'))`,
     );
 }
 
