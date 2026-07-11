@@ -89,8 +89,24 @@ async function getRecord(c: Context) {
     return c.json(serializeRecord(record));
 }
 
+async function deleteRecord(c: Context) {
+    const id = parseInt(c.req.param("id"), 10);
+    if (isNaN(id)) {
+        return c.json({ error: "Invalid ID" }, 400);
+    }
+
+    const record = await SgRecord.query().find(id);
+    if (!record) {
+        return c.json({ error: "Record not found" }, 404);
+    }
+
+    await SgRecord.query().where("id", id).delete();
+    return c.json({ success: true });
+}
+
 export default {
     listRecords,
     latestRecords,
     getRecord,
+    deleteRecord,
 };
