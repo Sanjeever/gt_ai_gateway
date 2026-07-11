@@ -1,136 +1,138 @@
 <template>
     <div class="advanced-settings">
         <div class="page-header">
-            <h2 class="page-title">高级设置</h2>
+            <h2 class="page-title">设置</h2>
         </div>
 
         <a-spin :spinning="loading">
-            <div class="settings-section">
-                <h3 class="section-title">请求处理</h3>
-                <div class="settings-list">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">强制改写 CCH</div>
-                            <div class="setting-desc">启用后，系统会自动修改 claudecode 请求体中的 cch 值为默认固定值，用于修复无法命中缓存问题</div>
-                        </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.cch_rewrite_enabled"
-                                @change="form.cch_rewrite_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">屏蔽 Claude Code 跟踪</div>
-                            <div class="setting-desc">启用后，系统会自动清洗 Claude Code 发送的隐藏的地区/时区/公司跟踪标记，避免污染用户真实数据与缓存特征</div>
-                        </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.claude_code_tracking_rewrite_enabled"
-                                @change="form.claude_code_tracking_rewrite_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
-                        </div>
-                    </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">Responses API 粘性路由</div>
-                            <div class="setting-desc">启用后，会在 Responses API 请求中自动注入 prompt_cache_key，优化缓存命中率</div>
-                        </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.responses_prompt_cache_key_enabled"
-                                @change="form.responses_prompt_cache_key_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3 class="section-title">调试与日志</h3>
-                <div class="settings-list">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">记录请求/响应内容</div>
-                            <div class="setting-desc">启用后，每次请求的 request/response 原始内容会写入对象存储（Node 模式存数据库表，Worker 模式存 R2），可在请求记录详情中查看。关闭可节省存储空间，但新记录的详情将不再包含请求/响应内容（已保存的历史记录不受影响）。</div>
-                        </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.record_payload_enabled"
-                                @change="form.record_payload_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
-                        </div>
-                    </div>
-                    <div class="setting-item" v-if="!isWorkerMode">
-                        <div class="setting-info">
-                            <div class="setting-title">流式日志记录</div>
-                            <div class="setting-desc">启用后，会将上游返回的原始 SSE 流式响应写入 log/stream/&lt;record_id&gt;.log，仅本地 Node 模式下生效，用于抓取原始流式请求</div>
-                        </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.stream_log_enabled"
-                                @change="form.stream_log_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3 class="section-title">系统</h3>
-                <div class="settings-list">
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">自动检测更新</div>
-                            <div class="setting-desc">
-                                当前版本：v{{ currentVersion }}
-                                <span v-if="hasUpdate" style="color: var(--accent-primary); margin-left: 8px;">
-                                    (发现新版本：{{ latestVersion }})
-                                </span>
-                                <span v-else-if="checkedUpdate" style="color: var(--text-secondary); margin-left: 8px;">
-                                    (已是最新版本)
-                                </span>
+            <a-tabs v-model:activeKey="activeTab">
+                <!-- 请求处理 -->
+                <a-tab-pane key="request" tab="请求处理">
+                    <div class="settings-list">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">强制改写 CCH</div>
+                                <div class="setting-desc">启用后，系统会自动修改 claudecode 请求体中的 cch 值为默认固定值，用于修复无法命中缓存问题</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.cch_rewrite_enabled"
+                                    @change="form.cch_rewrite_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
                             </div>
                         </div>
-                        <div class="setting-action" style="display: flex; align-items: center; gap: 16px;">
-                            <a-button 
-                                v-if="hasUpdate" 
-                                type="primary" 
-                                @click="openUpdateUrl"
-                            >
-                                下载更新
-                            </a-button>
-                            <a-button v-else :loading="checkingUpdate" @click="doCheckUpdate">
-                                检查更新
-                            </a-button>
-                            <a-switch
-                                :checked="form.auto_update_enabled"
-                                @change="form.auto_update_enabled = $event as boolean"
-                                :disabled="saving"
-                            />
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">屏蔽 Claude Code 跟踪</div>
+                                <div class="setting-desc">启用后，系统会自动清洗 Claude Code 发送的隐藏的地区/时区/公司跟踪标记，避免污染用户真实数据与缓存特征</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.claude_code_tracking_rewrite_enabled"
+                                    @change="form.claude_code_tracking_rewrite_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">Responses API 粘性路由</div>
+                                <div class="setting-desc">启用后，会在 Responses API 请求中自动注入 prompt_cache_key，优化缓存命中率</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.responses_prompt_cache_key_enabled"
+                                    @change="form.responses_prompt_cache_key_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <div class="setting-title">退出用户体验改进计划</div>
-                            <div class="setting-desc">开启后，将彻底关闭和开发者共享数据来帮助改进产品。</div>
+                </a-tab-pane>
+
+                <!-- 日志 -->
+                <a-tab-pane key="logging" tab="分析和录制">
+                    <div class="settings-list">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">记录请求/响应内容</div>
+                                <div class="setting-desc">启用后，每次请求的 request/response 原始内容会写入对象存储（Node 模式存数据库表，Worker 模式存 R2），可在请求记录详情中查看。关闭可节省存储空间，但新记录的详情将不再包含请求/响应内容（已保存的历史记录不受影响）。</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.record_payload_enabled"
+                                    @change="form.record_payload_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
                         </div>
-                        <div class="setting-action">
-                            <a-switch
-                                :checked="form.telemetry_disabled"
-                                @change="form.telemetry_disabled = $event as boolean"
-                                :disabled="saving"
-                            />
+                        <div class="setting-item" v-if="!isWorkerMode">
+                            <div class="setting-info">
+                                <div class="setting-title">流式日志记录</div>
+                                <div class="setting-desc">启用后，会将上游返回的原始 SSE 流式响应写入 log/stream/&lt;record_id&gt;.log，仅本地 Node 模式下生效，用于抓取原始流式请求</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.stream_log_enabled"
+                                    @change="form.stream_log_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </a-tab-pane>
+
+                <!-- 系统 -->
+                <a-tab-pane key="system" tab="系统">
+                    <div class="settings-list">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">自动检测更新</div>
+                                <div class="setting-desc">
+                                    当前版本：v{{ currentVersion }}
+                                    <span v-if="hasUpdate" style="color: var(--accent-primary); margin-left: 8px;">
+                                        (发现新版本：{{ latestVersion }})
+                                    </span>
+                                    <span v-else-if="checkedUpdate" style="color: var(--text-secondary); margin-left: 8px;">
+                                        (已是最新版本)
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="setting-action" style="display: flex; align-items: center; gap: 16px;">
+                                <a-button
+                                    v-if="hasUpdate"
+                                    type="primary"
+                                    @click="openUpdateUrl"
+                                >
+                                    下载更新
+                                </a-button>
+                                <a-button v-else :loading="checkingUpdate" @click="doCheckUpdate">
+                                    检查更新
+                                </a-button>
+                                <a-switch
+                                    :checked="form.auto_update_enabled"
+                                    @change="form.auto_update_enabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <div class="setting-title">退出用户体验改进计划</div>
+                                <div class="setting-desc">开启后，将彻底关闭和开发者共享数据来帮助改进产品。</div>
+                            </div>
+                            <div class="setting-action">
+                                <a-switch
+                                    :checked="form.telemetry_disabled"
+                                    @change="form.telemetry_disabled = $event as boolean"
+                                    :disabled="saving"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </a-tab-pane>
+            </a-tabs>
 
             <div class="page-actions">
                 <a-button style="margin-right: 12px" :disabled="!isDirty || saving" @click="cancelChanges">
@@ -154,7 +156,6 @@ import { RunMode } from '@/types/system';
 
 const appStore = useAppStore();
 const currentVersion = computed(() => appStore.version);
-// Cloudflare Workers 模式下无法写本地日志文件，隐藏流式日志开关
 const isWorkerMode = computed(() => appStore.mode === RunMode.WORKER);
 const checkingUpdate = ref(false);
 const checkedUpdate = ref(false);
@@ -164,6 +165,7 @@ const latestVersion = ref('');
 
 const loading = ref(false);
 const saving = ref(false);
+const activeTab = ref('request');
 
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
@@ -205,11 +207,11 @@ async function loadConfig(): Promise<void> {
         const config = await getConfig();
         form.cch_rewrite_enabled = config.cch_rewrite_enabled !== "false";
         originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled !== "false";
-        
+
         form.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled !== "false";
         originalConfig.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled !== "false";
-        
-        form.claude_code_tracking_rewrite_enabled = config.claude_code_tracking_rewrite_enabled !== "false"; // Default to true
+
+        form.claude_code_tracking_rewrite_enabled = config.claude_code_tracking_rewrite_enabled !== "false";
         originalConfig.claude_code_tracking_rewrite_enabled = config.claude_code_tracking_rewrite_enabled !== "false";
 
         form.stream_log_enabled = config.stream_log_enabled === "true";
@@ -223,7 +225,6 @@ async function loadConfig(): Promise<void> {
 
         form.telemetry_disabled = config.telemetry_disabled === "true";
         originalConfig.telemetry_disabled = config.telemetry_disabled === "true";
-        // 始终拉取一次 status，确保 mode（用于判断是否 worker 模式）是最新的
         await appStore.fetchVersion();
     } finally {
         loading.value = false;
@@ -292,8 +293,7 @@ async function saveConfig() {
         originalConfig.record_payload_enabled = form.record_payload_enabled;
         originalConfig.auto_update_enabled = form.auto_update_enabled;
         originalConfig.telemetry_disabled = form.telemetry_disabled;
-        
-        // Update posthog capturing state immediately in the current tab
+
         if ((window as any).posthog) {
             if (form.telemetry_disabled) {
                 (window as any).posthog.opt_out_capturing();
@@ -324,17 +324,6 @@ async function saveConfig() {
 .page-title {
     margin: 0;
     font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.settings-section {
-    margin-bottom: 32px;
-}
-
-.section-title {
-    margin: 0 0 16px;
-    font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -381,5 +370,10 @@ async function saveConfig() {
     margin-top: 24px;
     display: flex;
     justify-content: flex-end;
+}
+
+:deep(.ant-tabs-tab) {
+    font-size: 15px;
+    font-weight: 500;
 }
 </style>

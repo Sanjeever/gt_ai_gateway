@@ -150,7 +150,7 @@ const routes: RouteRecordRaw[] = [
                 path: 'advanced-settings',
                 name: 'AdvancedSettings',
                 component: AdvancedSettings,
-                meta: { title: '高级设置' },
+                meta: { title: '设置' },
             },
             {
                 path: 'developer',

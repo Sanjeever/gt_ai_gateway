@@ -45,7 +45,7 @@
                 </a-menu-item>
                 <a-menu-item key="/advanced-settings">
                     <SettingOutlined />
-                    <span>高级设置</span>
+                    <span>设置</span>
                 </a-menu-item>
                 <a-menu-item v-if="appStore.isDeveloperMode" key="/developer">
                     <CodeOutlined />
