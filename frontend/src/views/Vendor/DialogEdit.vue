@@ -100,7 +100,7 @@
                     <div class="advanced-row">
                         <label class="advanced-label">跳过 TLS 验证</label>
                         <a-switch v-model:checked="formState.skip_tls_verify" />
-                        <span style="margin-left: 8px; color: #999; font-size: 12px;">内网自签证书环境需开启</span>
+                        <span style="margin-left: 8px; color: #999; font-size: 12px;">当使用自签名证书等场景时使用</span>
                     </div>
                 </a-collapse-panel>
             </a-collapse>
@@ -335,10 +335,16 @@ defineExpose({ open });
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-bottom: 16px;
+}
+
+.advanced-row:last-child {
+    margin-bottom: 0;
 }
 
 .advanced-label {
     flex-shrink: 0;
+    width: 100px;
     font-size: 14px;
     color: rgba(0, 0, 0, 0.88);
 }

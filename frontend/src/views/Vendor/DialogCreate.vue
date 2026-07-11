@@ -325,10 +325,16 @@ defineExpose({ open });
     display: flex;
     align-items: center;
     gap: 12px;
+    margin-bottom: 16px;
+}
+
+.advanced-row:last-child {
+    margin-bottom: 0;
 }
 
 .advanced-label {
     flex-shrink: 0;
+    width: 100px;
     font-size: 14px;
     color: rgba(0, 0, 0, 0.88);
 }
