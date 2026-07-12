@@ -2,6 +2,7 @@ import { beforeAll, describe, it, expect } from "vitest";
 import requestHelper from "../../helpers/requestHelper";
 import dbHelper from "../../helpers/dbHelper";
 import { setupAdminUser } from "../../globalSetup";
+import { RunMode } from "../../../src/constants";
 
 /**
  * System Endpoint Tests
@@ -44,13 +45,21 @@ describe("System API", () => {
     });
 
     describe("GET /status.json", () => {
-        it("should return R2 unavailable reason in node mode", async () => {
+        it("should return R2 availability for the current runtime", async () => {
             const response = await requestHelper.get("/status.json", adminToken);
 
             expect(response.status).toBe(200);
+            if (response.body.mode === RunMode.NODE) {
+                expect(response.body.storage).toMatchObject({
+                    r2_available: false,
+                    r2_unavailable_reason: "当前非 Cloudflare 环境，R2 不可用",
+                });
+                return;
+            }
+
             expect(response.body.storage).toMatchObject({
-                r2_available: false,
-                r2_unavailable_reason: "当前非 Cloudflare 环境，R2 不可用",
+                r2_available: true,
+                r2_unavailable_reason: "",
             });
         });
     });
