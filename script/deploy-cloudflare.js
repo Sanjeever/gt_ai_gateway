@@ -32,7 +32,7 @@ function printHelp() {
     console.log("  --auto-create-db  Create the configured D1 database if it does not exist.");
     console.log("  --auto-create-r2  Create the configured R2 bucket if it does not exist.");
     console.log("  --auto-migrate    Apply D1 migrations before deploy.");
-    console.log("  --auto-create-root-token Create ROOT_TOKEN if it does not already exist.");
+    console.log("  --auto-create-root-token Set ROOT_TOKEN from the ROOT_TOKEN environment variable.");
     console.log("  --help, -h        Show this help message.");
     console.log("");
     console.log("Environment variables (override wrangler.toml names):");
@@ -328,42 +328,29 @@ function setupRootToken() {
         return;
     }
 
-    console.log("Checking ROOT_TOKEN...");
+    const providedToken = process.env.ROOT_TOKEN;
 
-    try {
-        const secrets = runAndCapture("npx", ["wrangler", "secret", "list"]);
-        const providedToken = process.env.ROOT_TOKEN;
-
-        if (secrets.includes("ROOT_TOKEN") && !providedToken) {
-            console.log("ROOT_TOKEN already exists in Cloudflare.");
-            return;
-        }
-
-        if (!providedToken) {
-            console.error("\n==========================================");
-            console.error(" ❌ [SECURITY ERROR] ROOT_TOKEN MISSING ❌");
-            console.error("==========================================");
-            console.error("For security reasons, we do not auto-generate the ROOT_TOKEN");
-            console.error("in the deployment logs, because GitHub Actions logs for public forks are PUBLIC!");
-            console.error("\n👉 HOW TO FIX: Go to your GitHub repository Settings -> Secrets and variables -> Actions,");
-            console.error("and add a new secret named 'ROOT_TOKEN' with your own custom password.");
-            console.error("Then re-run this deployment workflow.");
-            console.error("==========================================\n");
-            process.exit(1);
-        }
-
-        console.log("Setting custom ROOT_TOKEN from environment...");
-
-        run("npx", ["wrangler", "secret", "put", "ROOT_TOKEN"], {
-            input: `${providedToken}\n`,
-            stdio: ["pipe", "inherit", "inherit"],
-        });
-
-        console.log("✅ Custom ROOT_TOKEN has been securely set.");
-    } catch (err) {
-        console.error("Error checking/setting secrets:", err.message);
-        process.exit(1);
+    if (!providedToken) {
+        console.error("\n==========================================");
+        console.error(" ❌ [SECURITY ERROR] ROOT_TOKEN MISSING ❌");
+        console.error("==========================================");
+        console.error("For security reasons, we do not auto-generate the ROOT_TOKEN");
+        console.error("in the deployment logs, because GitHub Actions logs for public forks are PUBLIC!");
+        console.error("\n👉 HOW TO FIX: Go to your GitHub repository Settings -> Secrets and variables -> Actions,");
+        console.error("and add a new secret named 'ROOT_TOKEN' with your own custom password.");
+        console.error("Then re-run this deployment workflow.");
+        console.error("==========================================\n");
+        throw new Error("ROOT_TOKEN is required to set the Cloudflare Worker secret");
     }
+
+    console.log("Setting ROOT_TOKEN secret from environment...");
+
+    run("npx", ["wrangler", "secret", "put", "ROOT_TOKEN", ...prepareSecretWranglerArgs()], {
+        input: `${providedToken}\n`,
+        stdio: ["pipe", "inherit", "inherit"],
+    });
+
+    console.log("✅ ROOT_TOKEN has been securely set.");
 }
 
 function runDeploySetup() {
@@ -371,7 +358,6 @@ function runDeploySetup() {
         console.log("Running Cloudflare deploy setup...");
         setupDatabase();
         setupKVNamespace();
-        setupRootToken();
     }
 
     setupR2Bucket();
@@ -425,6 +411,14 @@ function cleanupGeneratedWranglerConfig() {
     fs.rmSync(generatedWranglerConfigPath, { force: true });
 }
 
+function prepareSecretWranglerArgs() {
+    if (!generatedWranglerConfigPath) {
+        return [];
+    }
+
+    return ["--config", generatedWranglerConfigPath];
+}
+
 function syncSubmodules() {
     if (!fs.existsSync(".gitmodules")) {
         return;
@@ -471,6 +465,7 @@ try {
     run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
     run("npm", ["run", "frontend:build"]);
     run("npx", ["wrangler", "deploy", "--minify", ...prepareDeployWranglerArgs()]);
+    setupRootToken();
 
     console.log("\n==========================================");
     console.log("    ✅ DEPLOYMENT SUCCESSFUL ✅");
