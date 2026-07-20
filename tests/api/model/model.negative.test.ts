@@ -189,5 +189,16 @@ describe("Model API (Negative)", () => {
             expect(response.status).toBe(400);
             expect(response.body.error).toBe("Invalid ID format");
         });
+
+        it("should reject malformed numeric IDs without deleting the matching model", async () => {
+            const response = await requestHelper.del(`/model/${existingModelId}abc`, adminToken);
+
+            expect(response.status).toBe(400);
+            expect(response.body.error).toBe("Invalid ID format");
+
+            const modelResponse = await requestHelper.get(`/model/${existingModelId}`, adminToken);
+            expect(modelResponse.status).toBe(200);
+            expect(modelResponse.body.name).toBe(existingModelName);
+        });
     });
 });

@@ -163,9 +163,9 @@ async function updateModel(c: Context) {
 
 async function deleteModel(c: Context) {
     const id = c.req.param("id");
-    const modelId = parseInt(id, 10);
+    const modelId = Number(id);
 
-    if (isNaN(modelId)) {
+    if (!Number.isInteger(modelId) || modelId <= 0) {
         throw new customError.AppError("Invalid ID format");
     }
 
